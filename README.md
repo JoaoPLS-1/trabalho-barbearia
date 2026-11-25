@@ -1,44 +1,93 @@
 # Sistema de Barbearia
 
-Produto para a recepção operar clientes, profissionais, serviços e agendamentos de várias empresas, sem login. A entrada exige escolher a empresa; a tela inicial mostra os atendimentos pendentes e o menu permite trocar de empresa.
+Sistema para a recepção operar clientes, profissionais, serviços e agendamentos de várias empresas, sem login. A entrada permitirá escolher a empresa e acessar um painel de atendimentos pendentes.
 
-## Situação atual
+## Estado do desenvolvimento
 
-A main inicial contém a API da aula em NestJS, Prisma e MySQL. O planejamento do produto está registrado; o front-end, os dados de exemplo e as melhorias de domínio serão implementados nas próximas partes. As rotas de agendamento ainda estão incompletas. Esta etapa não representa o produto pronto.
+A API da aula está em preparação para integração com o front-end. Esta parte configura comunicação HTTP, validação, erros e testes. O front-end, a agenda completa e os dados de demonstração serão entregues nas próximas partes.
 
-## Decisões e execução por partes
+## Arquitetura e decisões
 
-- [Produto e fluxos da recepção](docs/PRODUTO.md)
-- [Arquitetura e diagnóstico da base](docs/ARQUITETURA.md)
-- [Contrato planejado da API](docs/CONTRATO_API.md)
-- [Nove partes e 36 microcommits distribuídos entre os três participantes](docs/ENTREGAS.md)
+- API NestJS e TypeScript com Prisma e MySQL; front-end planejado em React, TypeScript e Vite.
+- Empresa corrente enviada pelo header x-empresa-id. A API valida o contexto e restringe as operações à empresa.
+- Profissionais e serviços terão desativação para preservar histórico.
+- Reservas deverão preservar preço e duração contratados e impedir sobreposição na API.
+- Agendamentos pendentes serão resolvidos pela recepção como concluídos, cancelados ou faltas.
+- Pagamentos, estoque e integração automática com WhatsApp ficam fora da primeira entrega.
 
-Stack decidida: manter NestJS, TypeScript, Prisma e MySQL; adicionar React, TypeScript e Vite em frontend/. A estrutura da API permanece na raiz para aproveitar a base da aula.
+O planejamento detalhado fica na pasta local docs/, ignorada pelo Git. As instruções necessárias para executar o produto permanecem neste README.
 
-## Preparação da API existente
+## Requisitos
 
-Pré-requisitos: Node compatível com as versões do package.json, npm e MySQL disponível. A padronização e a verificação das versões fazem parte da etapa 2.
+- Node.js 22.22.3 (versão registrada em .nvmrc), ou outra versão compatível com engines no package.json.
+- npm 10 ou superior; lockfile mantido com npm 11.21.1.
+- MySQL 8.4 para executar a API e os testes de integração.
 
-1. Instalar as dependências com npm install. Após consolidar e versionar o lockfile, usar npm ci.
-2. Copiar .env.example para .env e preencher DATABASE_URL com o banco local.
-3. Gerar o cliente: npx prisma generate --config prisma7.config.ts.
-4. Aplicar migrações: npx prisma migrate deploy --config prisma7.config.ts.
-5. Iniciar: npm run start:dev.
+As ferramentas Nest/Angular instaladas exigem uma revisão mais recente do Node 22. Não usar a versão 22.20 para uma instalação suportada. O compilador SWC nos testes preserva os metadados dos decorators exigidos pelo Nest, conforme a [documentação do NestJS](https://docs.nestjs.com/recipes/swc).
 
-Esses são os comandos previstos a partir dos scripts existentes; sua execução completa será validada na etapa de infraestrutura. A API escuta a porta 3000 por padrão. Rotas por empresa usam o header x-empresa-id. Há exemplos em routes.http.
+## Executar a API
 
-## Verificação
+1. Instalar dependências:
 
-Scripts existentes: npm run build, npm run lint, npm test e npm run test:e2e. O teste HTTP atual inicializa a aplicação com banco; preparar um MySQL exclusivo de testes antes de ampliar a suíte. O teste atual de Hello World não demonstra o fluxo do produto.
+   ```bash
+   npm ci
+   ```
 
-As instruções de execução do front, carga de exemplos e demonstração serão acrescentadas nos commits que entregarem essas funcionalidades.
+2. Copiar .env.example para .env e preencher DATABASE_URL com a conexão de desenvolvimento. Não versionar esse arquivo.
+3. Criar o banco e aplicar as migrações existentes com um usuário autorizado a fazê-lo:
 
-## Participantes
+   ```bash
+   npm run db:generate
+   npm run db:migrate
+   ```
 
-| Identificação | Conta | Email de autoria |
-| --- | --- | --- |
-| João | JoaoPLS-1 | barrancoij@gmail.com |
-| Helena | helenamoreto | helenamoreto2008@gmail.com |
-| Victor | Hcklz | victorzapkkj@gmail.com |
+4. Iniciar a API:
 
-A primeira parte pertence a João. As partes seguintes alternam responsáveis em blocos, com 12 microcommits planejados para cada participante. As publicações devem usar a conta correspondente, conforme o fluxo em docs/ENTREGAS.md.
+   ```bash
+   npm run start:dev
+   ```
+
+Porta padrão: 3000. O front usará 5173. CORS_ORIGINS aceita origens HTTP separadas por vírgula, sem caminho ou barra final; os padrões permitem localhost e 127.0.0.1 na porta 5173. Essa configuração permite comunicação entre portas e não substitui regras de empresa na API.
+
+Requisições de cadastro usam Content-Type: application/json e x-empresa-id. Campos extras são recusados; erros retornam statusCode, code, message e, quando aplicável, fieldErrors. Falhas inesperadas retornam mensagem genérica e são registradas apenas no servidor.
+
+## Verificações sem banco
+
+```bash
+npm run db:generate
+npm run build
+npm run typecheck
+npm run lint
+npm test
+npm run test:e2e
+```
+
+A suíte unitária cobre configuração, proteção do banco de testes e exclusão de serviços. A suíte HTTP inicializa os controllers e services reais com Prisma substituído; verifica CORS, DTOs, contexto de empresa e mensagens de erro sem abrir conexão MySQL. Esses testes não comprovam consultas SQL reais.
+
+## Integração com MySQL
+
+1. Preparar uma instância MySQL acessível e exclusiva para testes.
+2. Copiar .env.test.example para .env.test.local.
+3. Preencher DATABASE_TEST_URL. O nome do banco precisa terminar em _test e ser diferente do banco em DATABASE_URL.
+4. Executar:
+
+   ```bash
+   npm run db:generate
+   npm run test:integration
+   ```
+
+O runner valida o destino, aplica as migrações existentes e executa os testes HTTP com MySQL real. Não há fallback para o banco de desenvolvimento, reset automático, truncate ou limpeza global. A suíte cria seus dados e remove apenas seus próprios registros.
+
+Os testes de integração estão preparados, mas sua execução está pendente de configuração do banco de testes, por decisão do grupo.
+
+## Colaboração
+
+Trabalhar em mudanças pequenas e revisar os arquivos preparados antes de cada commit. A autoria será decidida com o grupo antes de cada commit; o cronograma anterior não escolhe automaticamente quem assina as próximas alterações.
+
+| Participante | Conta GitHub | Email de autoria           |
+| ------------ | ------------ | -------------------------- |
+| João         | JoaoPLS-1    | barrancoij@gmail.com       |
+| Helena       | helenamoreto | helenamoreto2008@gmail.com |
+| Victor       | Hcklz        | victorzapkkj@gmail.com     |
+
+Nome e email configurados no Git definem autoria; a conta autenticada para o push é independente.
