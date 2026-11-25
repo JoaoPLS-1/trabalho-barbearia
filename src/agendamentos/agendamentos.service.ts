@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateAgendamentoDto } from './dto/create-agendamento.dto.js';
 import { UpdateStatusDto } from './dto/update-status.dto.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -10,59 +15,62 @@ const DETALHES = {
   servicos: {
     include: {
       servico: { select: { id: true, nome: true, duracaoMin: true } },
-    }
-  }
-
-}
+    },
+  },
+};
 
 const hora = (d: Date) =>
-  d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 @Injectable()
 export class AgendamentosService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly empresas: EmpresasService
-  ) { }
+    private readonly empresas: EmpresasService,
+  ) {}
 
   async create(empresaId: number, dto: CreateAgendamentoDto) {
-    await this.empresas.validarEmpresaAtiva(empresaId)
+    await this.empresas.validarEmpresaAtiva(empresaId);
 
-    const inicio = new Date(dto.inicio)
+    const inicio = new Date(dto.inicio);
     if (inicio <= new Date()) {
-      throw new BadRequestException('Não é possível agendar numa data antiga')
+      throw new BadRequestException('Não é possível agendar numa data antiga');
     }
 
     const cliente = await this.prisma.cliente.findFirst({
-      where: { empresaId, id: dto.clienteId }
-    })
+      where: { empresaId, id: dto.clienteId },
+    });
 
     if (!cliente) {
-      throw new NotFoundException("Cliente não encontrado nesta empresa")
+      throw new NotFoundException('Cliente não encontrado nesta empresa');
     }
 
     const profissional = await this.prisma.profissional.findFirst({
-      where: { id: dto.profissionalId, empresaId }
-    })
+      where: { id: dto.profissionalId, empresaId },
+    });
 
     if (!profissional) {
-      throw new NotFoundException("Profissional não encontrado nesta empresa")
+      throw new NotFoundException('Profissional não encontrado nesta empresa');
     }
 
     if (!profissional.ativo) {
-      throw new NotFoundException("Profissional inativo não recebe agendamentos")
+      throw new NotFoundException(
+        'Profissional inativo não recebe agendamentos',
+      );
     }
 
     const servicos = await this.prisma.servico.findMany({
-      where: { empresaId, id: { in: dto.servicoIds } }
-    })
+      where: { empresaId, ativo: true, id: { in: dto.servicoIds } },
+    });
 
     if (servicos.length !== dto.servicoIds.length) {
-      throw new NotFoundException("Serviço não encontrado nesta empresa")
+      throw new NotFoundException(
+        'Serviço não encontrado ou inativo nesta empresa',
+      );
     }
 
-    const duracaoTotal = servicos.reduce((soma, s) => soma + s.duracaoMin, 0)
-    const fim = new Date(inicio.getTime() + duracaoTotal * 60_000)
+    const duracaoTotal = servicos.reduce((soma, s) => soma + s.duracaoMin, 0);
+    const fim = new Date(inicio.getTime() + duracaoTotal * 60_000);
 
     const conflito = await this.prisma.agendamento.findFirst({
       where: {
@@ -70,14 +78,15 @@ export class AgendamentosService {
         profissionalId: dto.profissionalId,
         status: 'AGENDADO',
         inicio: { lt: fim },
-        fim: { gt: inicio }
-      }
-    })
+        fim: { gt: inicio },
+      },
+    });
 
     if (conflito) {
       throw new ConflictException(
-        `${profissional.nome} já tem atendimento das ` + `${hora(conflito.inicio)} às ${hora(conflito.fim)}`
-      )
+        `${profissional.nome} já tem atendimento das ` +
+          `${hora(conflito.inicio)} às ${hora(conflito.fim)}`,
+      );
     }
 
     return this.prisma.agendamento.create({
@@ -90,11 +99,13 @@ export class AgendamentosService {
         servicos: {
           create: servicos.map((s) => ({
             servicoId: s.id,
-            precoCobrado: s.preco
-          }))
-        }
+            precoCobrado: s.preco,
+            nomeContratado: s.nome,
+            duracaoContratadaMin: s.duracaoMin,
+          })),
+        },
       },
-      include: DETALHES
+      include: DETALHES,
     });
   }
 
