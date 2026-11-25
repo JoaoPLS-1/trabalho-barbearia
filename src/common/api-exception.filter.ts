@@ -58,6 +58,20 @@ export class ApiExceptionFilter implements ExceptionFilter {
         statusCode = HttpStatus.NOT_FOUND;
         code = 'NAO_ENCONTRADO';
         message = 'Registro não encontrado nesta empresa.';
+      } else if (
+        exception.code === 'P2034' ||
+        (exception.code === 'P2010' &&
+          ['1213', '1205'].includes(String(exception.meta?.code)))
+      ) {
+        statusCode = HttpStatus.CONFLICT;
+        code = 'OPERACAO_CONCORRENTE';
+        message =
+          'Outra operação ocorreu ao mesmo tempo. Consulte o resultado e tente novamente com a mesma chave.';
+      } else if (['P2028', 'P2024'].includes(exception.code)) {
+        statusCode = HttpStatus.SERVICE_UNAVAILABLE;
+        code = 'OPERACAO_INCERTA';
+        message =
+          'A confirmação não chegou. Consulte a operação antes de tentar novamente com a mesma chave.';
       }
     }
 

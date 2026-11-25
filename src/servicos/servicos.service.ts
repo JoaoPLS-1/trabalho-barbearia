@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { CreateServicoDto } from './dto/create-servico.dto.js';
 import { UpdateServicoDto } from './dto/update-servico.dto.js';
+import { withEmpresaLock } from '../common/empresa-transaction.js';
 import { CatalogQueryDto } from '../common/list-query.dto.js';
 import { Prisma, type Servico } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -61,24 +62,24 @@ export class ServicosService {
 
   async update(empresaId: number, id: number, dto: UpdateServicoDto) {
     await this.findOne(empresaId, id);
-    // Nunca altera nome, duração ou preço copiados para um agendamento anterior.
-    return resposta(
-      await this.prisma.servico.update({ where: { empresaId, id }, data: dto }),
+    return withEmpresaLock(this.prisma, empresaId, async (tx) =>
+      resposta(
+        await tx.servico.update({ where: { empresaId, id }, data: dto }),
+      ),
     );
   }
 
   async remove(empresaId: number, id: number) {
     await this.findOne(empresaId, id);
-    const usos = await this.prisma.agendamentoServico.count({
-      where: { servicoId: id, servico: { empresaId } },
+    return withEmpresaLock(this.prisma, empresaId, async (tx) => {
+      const usos = await tx.agendamentoServico.count({
+        where: { servicoId: id, servico: { empresaId } },
+      });
+      if (usos > 0)
+        throw new ConflictException(
+          'Serviço já utilizado em agendamentos. Desative-o com PATCH { ativo: false }.',
+        );
+      return resposta(await tx.servico.delete({ where: { empresaId, id } }));
     });
-    if (usos > 0) {
-      throw new ConflictException(
-        'Serviço já utilizado em agendamentos. Desative-o com PATCH { ativo: false }.',
-      );
-    }
-    return resposta(
-      await this.prisma.servico.delete({ where: { empresaId, id } }),
-    );
   }
 }

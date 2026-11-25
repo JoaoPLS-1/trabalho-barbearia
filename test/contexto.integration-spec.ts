@@ -253,6 +253,7 @@ describe('Cadastros e histórico com MySQL real', () => {
     ).toBe(1);
     await request(app.getHttpServer())
       .post('/agendamentos')
+      .set('Idempotency-Key', randomUUID())
       .set('x-empresa-id', String(empresas[0]))
       .send({
         clienteId: cliente,

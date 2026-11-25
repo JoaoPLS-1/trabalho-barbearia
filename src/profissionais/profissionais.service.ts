@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { CreateProfissionaisDto } from './dto/create-profissional.dto.js';
 import { UpdateProfissionaisDto } from './dto/update-profissional.dto.js';
+import { withEmpresaLock } from '../common/empresa-transaction.js';
 import { CatalogQueryDto } from '../common/list-query.dto.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -54,23 +55,22 @@ export class ProfissionaisService {
 
   async update(empresaId: number, id: number, dto: UpdateProfissionaisDto) {
     await this.findOne(empresaId, id);
-    // Desativação mantém todas as reservas existentes para resolução pela recepção.
-    return this.prisma.profissional.update({
-      where: { id, empresaId },
-      data: dto,
-    });
+    return withEmpresaLock(this.prisma, empresaId, (tx) =>
+      tx.profissional.update({ where: { id, empresaId }, data: dto }),
+    );
   }
 
   async remove(empresaId: number, id: number) {
     await this.findOne(empresaId, id);
-    const total = await this.prisma.agendamento.count({
-      where: { profissionalId: id, empresaId },
+    return withEmpresaLock(this.prisma, empresaId, async (tx) => {
+      const total = await tx.agendamento.count({
+        where: { profissionalId: id, empresaId },
+      });
+      if (total > 0)
+        throw new ConflictException(
+          'O profissional possui agendamentos. Desative-o com PATCH { ativo: false }.',
+        );
+      return tx.profissional.delete({ where: { empresaId, id } });
     });
-    if (total > 0) {
-      throw new ConflictException(
-        'O profissional possui agendamentos. Desative-o com PATCH { ativo: false }.',
-      );
-    }
-    return this.prisma.profissional.delete({ where: { empresaId, id } });
   }
 }
