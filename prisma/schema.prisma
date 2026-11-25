@@ -8,16 +8,20 @@ datasource db {
 }
 
 model Empresa {
-  id            Int            @id @default(autoincrement())
-  nome          String
-  cnpj          String         @unique
-  telefone      String?
-  ativa         Boolean        @default(true)
-  criadoEm      DateTime       @default(now())
-  clientes      Cliente[]
-  profissionais Profissional[]
-  servicos      Servico[]
-  agendamentos  Agendamento[]
+  id                Int            @id @default(autoincrement())
+  nome              String
+  cnpj              String         @unique
+  telefone          String?
+  ativa             Boolean        @default(true)
+  criadoEm          DateTime       @default(now())
+  fusoHorario       String         @default("America/Sao_Paulo") @db.VarChar(64)
+  aberturaMin       Int            @default(540)
+  fechamentoMin     Int            @default(1140)
+  diasFuncionamento Json           @default(dbgenerated("(json_array(1,2,3,4,5,6))"))
+  clientes          Cliente[]
+  profissionais     Profissional[]
+  servicos          Servico[]
+  agendamentos      Agendamento[]
 
   @@map("empresas")
 }
@@ -80,6 +84,8 @@ model Agendamento {
   criadoEm       DateTime             @default(now())
   empresaId      Int
   empresa        Empresa              @relation(fields: [empresaId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  chaveOperacao  String?              @db.VarChar(36)
+  hashPedido     String?              @db.Char(64)
   clienteId      Int
   cliente        Cliente              @relation(fields: [clienteId, empresaId], references: [id, empresaId], onDelete: Restrict, onUpdate: Restrict)
   profissionalId Int
@@ -87,6 +93,7 @@ model Agendamento {
   servicos       AgendamentoServico[]
 
   @@unique([id, empresaId])
+  @@unique([empresaId, chaveOperacao])
   @@index([empresaId, status, inicio, id])
   @@index([empresaId, profissionalId, inicio, fim])
   @@index([clienteId, empresaId])
@@ -95,14 +102,14 @@ model Agendamento {
 }
 
 model AgendamentoServico {
-  precoCobrado         Decimal      @db.Decimal(10, 2)
+  precoCobrado         Decimal     @db.Decimal(10, 2)
   nomeContratado       String
   duracaoContratadaMin Int
   empresaId            Int
   servicoId            Int
-  servico              Servico      @relation(fields: [servicoId, empresaId], references: [id, empresaId], onDelete: Restrict, onUpdate: Restrict)
+  servico              Servico     @relation(fields: [servicoId, empresaId], references: [id, empresaId], onDelete: Restrict, onUpdate: Restrict)
   agendamentoId        Int
-  agendamento          Agendamento  @relation(fields: [agendamentoId, empresaId], references: [id, empresaId], onDelete: Restrict, onUpdate: Restrict)
+  agendamento          Agendamento @relation(fields: [agendamentoId, empresaId], references: [id, empresaId], onDelete: Restrict, onUpdate: Restrict)
 
   @@id([agendamentoId, servicoId])
   @@index([servicoId, empresaId])

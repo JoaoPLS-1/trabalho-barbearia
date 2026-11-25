@@ -2,10 +2,16 @@ import { vi } from 'vitest';
 import { Prisma } from '../../src/generated/prisma/client.js';
 
 export function prismaDouble() {
+  const expediente = {
+    fusoHorario: 'America/Sao_Paulo',
+    aberturaMin: 540,
+    fechamentoMin: 1140,
+    diasFuncionamento: [1, 2, 3, 4, 5, 6],
+  };
   const empresas = [
-    { id: 1, nome: 'Centro', ativa: true },
-    { id: 2, nome: 'Bairro', ativa: true },
-    { id: 3, nome: 'Fechada', ativa: false },
+    { ...expediente, id: 1, nome: 'Centro', ativa: true },
+    { ...expediente, id: 2, nome: 'Bairro', ativa: true },
+    { ...expediente, id: 3, nome: 'Fechada', ativa: false },
   ];
   const clientes = [
     { id: 11, empresaId: 1, nome: 'Cliente Centro', telefone: '11999990001' },
@@ -26,11 +32,21 @@ export function prismaDouble() {
     duracaoMin: 30,
   };
 
-  return {
-    $transaction: vi.fn(async (operations: Promise<unknown>[]) =>
-      Promise.all(operations),
+  const prisma = {
+    $queryRaw: vi.fn(async (..._args: unknown[]) => [{ id: 1 }]),
+    $transaction: vi.fn(async (operations: unknown): Promise<unknown> =>
+      typeof operations === 'function'
+        ? operations(prisma)
+        : Promise.all(operations as Promise<unknown>[]),
     ),
     empresa: {
+      findMany: vi.fn(async () => empresas),
+      update: vi.fn(
+        async ({ where, data }: { where: { id: number }; data: object }) => ({
+          ...empresas.find((e) => e.id === where.id),
+          ...data,
+        }),
+      ),
       findUnique: vi.fn(
         async ({ where }: { where: { id: number } }) =>
           empresas.find((empresa) => empresa.id === where.id) ?? null,
@@ -127,7 +143,7 @@ export function prismaDouble() {
     },
     agendamento: {
       count: vi.fn(async () => 0),
-      findFirst: vi.fn(async () => null),
+      findFirst: vi.fn(),
       create: vi.fn(),
     },
     agendamentoServico: {
@@ -135,4 +151,5 @@ export function prismaDouble() {
       updateMany: vi.fn(),
     },
   };
+  return prisma;
 }

@@ -1,29 +1,38 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { EmpresasService } from './empresas.service.js';
 import { CreateEmpresaDto } from './dto/create-empresa.dto.js';
 import { UpdateEmpresaDto } from './dto/update-empresa.dto.js';
+import { EmpresaQueryDto } from './dto/empresa-query.dto.js';
+import { PositiveIdPipe } from '../common/positive-id.pipe.js';
 
 @Controller('empresas')
 export class EmpresasController {
-  constructor(private readonly empresasService: EmpresasService) { }
-
+  constructor(private readonly empresas: EmpresasService) {}
   @Post()
   create(@Body() dto: CreateEmpresaDto) {
-    return this.empresasService.create(dto);
+    return this.empresas.create(dto);
   }
-
   @Get()
-  findAll() {
-    return this.empresasService.findAll();
+  findAll(@Query() query: EmpresaQueryDto) {
+    return this.empresas.findAll(query);
   }
-
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.empresasService.findOne(id);
+  findOne(@Param('id', PositiveIdPipe) id: number) {
+    return this.empresas.findOne(id);
   }
-
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateEmpresaDto) {
-    return this.empresasService.update(id, dto);
+  update(
+    @Param('id', PositiveIdPipe) id: number,
+    @Body() dto: UpdateEmpresaDto,
+  ) {
+    return this.empresas.update(id, dto);
   }
 }
