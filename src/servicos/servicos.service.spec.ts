@@ -1,3 +1,4 @@
+import { Prisma } from '../generated/prisma/client.js';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ServicosService } from './servicos.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -27,7 +28,14 @@ describe('Remoção de serviços', () => {
 
   it('preserva serviço com histórico, contando vínculos pela relação correta', async () => {
     const { prisma, service } = setup();
-    prisma.servico.findUnique.mockResolvedValue({ id: 9, empresaId: 1 });
+    prisma.servico.findUnique.mockResolvedValue({
+      id: 9,
+      empresaId: 1,
+      nome: 'Corte',
+      ativo: true,
+      duracaoMin: 30,
+      preco: new Prisma.Decimal('40.00'),
+    });
     prisma.agendamentoServico.count.mockResolvedValue(1);
     await expect(service.remove(1, 9)).rejects.toBeInstanceOf(
       ConflictException,
@@ -40,9 +48,26 @@ describe('Remoção de serviços', () => {
 
   it('remove serviço sem uso, restrito à empresa', async () => {
     const { prisma, empresas, service } = setup();
-    prisma.servico.findUnique.mockResolvedValue({ id: 9, empresaId: 1 });
-    prisma.servico.delete.mockResolvedValue({ id: 9 });
-    await expect(service.remove(1, 9)).resolves.toEqual({ id: 9 });
+    prisma.servico.findUnique.mockResolvedValue({
+      id: 9,
+      empresaId: 1,
+      nome: 'Corte',
+      ativo: true,
+      duracaoMin: 30,
+      preco: new Prisma.Decimal('40.00'),
+    });
+    prisma.servico.delete.mockResolvedValue({
+      id: 9,
+      empresaId: 1,
+      nome: 'Corte',
+      ativo: true,
+      duracaoMin: 30,
+      preco: new Prisma.Decimal('40.00'),
+    });
+    await expect(service.remove(1, 9)).resolves.toMatchObject({
+      id: 9,
+      preco: '40.00',
+    });
     expect(empresas.validarEmpresaAtiva).toHaveBeenCalledWith(1);
     expect(prisma.servico.delete).toHaveBeenCalledWith({
       where: { empresaId: 1, id: 9 },
