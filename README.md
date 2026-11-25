@@ -4,7 +4,7 @@ Sistema para a recepção operar clientes, profissionais, serviços e agendament
 
 ## Estado do desenvolvimento
 
-A API da aula está em preparação para integração com o front-end. Esta parte configura comunicação HTTP, validação, erros e testes. O front-end, a agenda completa e os dados de demonstração serão entregues nas próximas partes.
+A API da aula está em preparação para integração com o front-end. Os cadastros possuem busca paginada, telefone normalizado, preço decimal e desativação com histórico preservado. As rotas completas de agenda ainda estão em construção. O front-end, a agenda completa e os dados de demonstração serão entregues nas próximas partes.
 
 ## Arquitetura e decisões
 
@@ -79,6 +79,28 @@ A suíte unitária cobre configuração, proteção do banco de testes e exclus�
 O runner valida o destino, aplica as migrações existentes e executa os testes HTTP com MySQL real. Não há fallback para o banco de desenvolvimento, reset automático, truncate ou limpeza global. A suíte cria seus dados e remove apenas seus próprios registros.
 
 Os testes de integração estão preparados, mas sua execução está pendente de configuração do banco de testes, por decisão do grupo.
+
+## Cadastros da API
+
+Clientes, profissionais e serviços agora retornam listas no formato { items, total, page, pageSize }. As queries aceitam busca, page (padrão 1) e pageSize (padrão 20, máximo 100). Nome e id definem a ordenação estável. A contagem respeita a empresa e os filtros, independentemente da página.
+
+Clientes aceitam busca parcial por nome ou telefone. Cadastro e edição normalizam espaços do nome e a formatação do telefone; +55 é removido quando acompanhado de DDD e número completo. A API mantém 10 ou 11 dígitos e rejeita letras. O telefone é único por empresa, inclusive na edição e em tentativas simultâneas.
+
+Profissionais e serviços aceitam ativo=true ou ativo=false; omitir o filtro retorna ambos. O parâmetro antigo ativos foi substituído por ativo. PATCH com { ativo: false } desativa sem apagar atendimentos existentes; PATCH com true permite reativar. A recepção resolverá manualmente as reservas de quem saiu da barbearia.
+
+Preço de serviço é enviado e retornado como string com duas casas decimais, por exemplo "40.10". Aceita de "0.01" a "99999999.99". Duração é um inteiro entre 5 e 600 minutos. Nome, preço e duração contratados ficam copiados no item da reserva. Mudanças posteriores no catálogo não os atualizam.
+
+As rotas DELETE legadas recusam clientes, profissionais e serviços com histórico ou reservas. As chaves estrangeiras também restringem a exclusão e os vínculos entre empresas no banco. Exemplos atualizados estão em routes.http.
+
+## Migração dos cadastros
+
+A migração 20261125230000_fortalecer_cadastros_e_historico foi preparada, mas não aplicada nem validada com MySQL real nesta etapa. Executar a suíte de integração em banco de testes antes de migrar um banco com dados.
+
+Para migrar dados existentes, parar a API e conferir um backup. A migração verifica empresas obrigatórias, vínculos cruzados, telefones inválidos ou duplicados após normalização e valores monetários/durações incompatíveis antes de alterar tabelas do produto. Uma falha identifica a categoria por uma constraint com prefixo sanear_. Corrigir os registros indicados pela categoria antes de prosseguir; não atribuir órfãos a uma empresa arbitrária.
+
+O MySQL não torna toda a sequência de alterações de estrutura atômica. Se uma migração falhar, examinar o estado e seguir o fluxo de recuperação de migrações antes de tentar novamente; não executar reset em um banco de uso normal.
+
+A base antiga já preservava o preço cobrado, mas não o nome e a duração de cada serviço contratado. Para registros anteriores, a migração copia nome e duração do catálogo disponível no momento da migração, pois não é possível reconstruir alterações históricas perdidas. Novas reservas preservam esses três valores desde a criação.
 
 ## Colaboração
 

@@ -1,115 +1,100 @@
-POST http://localhost:3000/empresas
-Content-Type: application/json
-Test: Daniel
+@baseUrl = http://localhost:3000
+@empresaId = 1
+@clienteId = 1
+@profissionalId = 1
+@servicoId = 1
 
-{
-    "nome": "Barbearia do Renan",
-    "cnpj": "7Y.G43.BY2/0001-05"
-}
-
-### 
-
-GET http://localhost:3000/empresas
-
-###
-
-POST http://localhost:3000/clientes
+### Cadastrar empresa de exemplo
+POST {{baseUrl}}/empresas
 Content-Type: application/json
 
 {
-    "nome": "Daniel",
-    "telefone": "11999999990"
+  "nome": "Barbearia Centro",
+  "cnpj": "12345678000100"
 }
 
-###
-GET http://localhost:3000/clientes
-Content-Type: application/json
-x-empresa-id: 1
+### Listar empresas para escolha
+GET {{baseUrl}}/empresas
 
-###
-GET http://localhost:3000/clientes/2
+### Cadastrar cliente com telefone formatado
+POST {{baseUrl}}/clientes
 Content-Type: application/json
-x-empresa-id: 2
-
-###
-PATCH http://localhost:3000/clientes/1
-Content-Type: application/json
-x-empresa-id: 1
+x-empresa-id: {{empresaId}}
 
 {
-    "nome": "Hugo Lagrimante"
+  "nome": "Ana Silva",
+  "telefone": "+55 (11) 99999-0001"
 }
 
-###
-DELETE http://localhost:3000/clientes/1
-Content-Type: application/json
-x-empresa-id: 1
+### Buscar cliente por nome ou telefone parcial
+# Resposta: { items, total, page, pageSize }
+GET {{baseUrl}}/clientes?busca=9999&page=1&pageSize=20
+x-empresa-id: {{empresaId}}
 
-###
-POST http://localhost:3000/profissionais
+### Editar telefone com as mesmas regras do cadastro
+PATCH {{baseUrl}}/clientes/{{clienteId}}
 Content-Type: application/json
-x-empresa-id: 1
+x-empresa-id: {{empresaId}}
 
 {
-    "nome": "Daniel"
+  "telefone": "(11) 98888-0001"
 }
 
-###
-GET http://localhost:3000/profissionais?ativos=true 
+### Cadastrar profissional
+POST {{baseUrl}}/profissionais
 Content-Type: application/json
-x-empresa-id: 1
-
-###
-PATCH http://localhost:3000/profissionais/6 
-Content-Type: application/json
-x-empresa-id: 1
+x-empresa-id: {{empresaId}}
 
 {
-    "ativo": false
+  "nome": "Bruno"
 }
 
-###
-GET http://localhost:3000/profissionais/7
+### Consultar ativos ou inativos usando ativo no singular
+GET {{baseUrl}}/profissionais?ativo=true&page=1&pageSize=20
+x-empresa-id: {{empresaId}}
+
+### Desativar sem remover reservas existentes
+PATCH {{baseUrl}}/profissionais/{{profissionalId}}
 Content-Type: application/json
-x-empresa-id: 1
-
-
----
-
-###
-POST http://localhost:3000/servicos
-Content-Type: application/json
-x-empresa-id: 1
+x-empresa-id: {{empresaId}}
 
 {
-    "nome": "Barba",
-    "preco": 40.00,
-    "duracaoMin": 20
+  "ativo": false
 }
 
-
-### 
-PATCH http://localhost:3000/servicos/3
+### Cadastrar servico com preco decimal em string
+POST {{baseUrl}}/servicos
 Content-Type: application/json
-x-empresa-id: 1
+x-empresa-id: {{empresaId}}
 
 {
-    "preco": 45.00
+  "nome": "Corte",
+  "preco": "40.10",
+  "duracaoMin": 30
 }
 
-###
-GET http://localhost:3000/servicos
-Content-Type: application/json
-x-empresa-id: 1
+### Listar catalogo com busca e situacao
+GET {{baseUrl}}/servicos?ativo=true&busca=Corte&page=1&pageSize=20
+x-empresa-id: {{empresaId}}
 
-### 
-POST http://localhost:3000/agendamentos
+### Alterar catalogo sem alterar dados ja contratados
+PATCH {{baseUrl}}/servicos/{{servicoId}}
 Content-Type: application/json
-x-empresa-id: 1
+x-empresa-id: {{empresaId}}
 
 {
-    "clienteId": 2,
-    "profissionalId": 1,
-    "inicio": "2026-11-13T21:00:00-03:00",
-    "servicoIds": [2,3]
+  "nome": "Corte tradicional",
+  "preco": "45.00",
+  "duracaoMin": 35
 }
+
+### Desativar servico preservando historico
+PATCH {{baseUrl}}/servicos/{{servicoId}}
+Content-Type: application/json
+x-empresa-id: {{empresaId}}
+
+{
+  "ativo": false
+}
+
+### As rotas completas de agenda serao entregues na parte 4.
