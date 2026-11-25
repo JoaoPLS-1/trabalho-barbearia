@@ -98,12 +98,14 @@ describe('API HTTP sem banco (Prisma substituído)', () => {
       .get('/clientes')
       .set('x-empresa-id', '1')
       .expect(200);
-    expect(response.body.map((cliente: { id: number }) => cliente.id)).toEqual([
-      11,
-    ]);
-    expect(prisma.cliente.findMany).toHaveBeenCalledWith({
-      where: { empresaId: 1 },
-    });
+    expect(
+      response.body.items.map((cliente: { id: number }) => cliente.id),
+    ).toEqual([11]);
+    expect(prisma.cliente.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { empresaId: 1 },
+      }),
+    );
   });
 
   it('não retorna cliente de outra empresa', async () => {

@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { Prisma } from '../../src/generated/prisma/client.js';
 
 export function prismaDouble() {
   const empresas = [
@@ -10,8 +11,25 @@ export function prismaDouble() {
     { id: 11, empresaId: 1, nome: 'Cliente Centro', telefone: '11999990001' },
     { id: 22, empresaId: 2, nome: 'Cliente Bairro', telefone: '11999990002' },
   ];
+  const profissional = {
+    id: 7,
+    empresaId: 1,
+    nome: 'Profissional Centro',
+    ativo: true,
+  };
+  const servico = {
+    id: 9,
+    empresaId: 1,
+    nome: 'Corte',
+    ativo: true,
+    preco: new Prisma.Decimal('40.00'),
+    duracaoMin: 30,
+  };
 
   return {
+    $transaction: vi.fn(async (operations: Promise<unknown>[]) =>
+      Promise.all(operations),
+    ),
     empresa: {
       findUnique: vi.fn(
         async ({ where }: { where: { id: number } }) =>
@@ -19,8 +37,18 @@ export function prismaDouble() {
       ),
     },
     cliente: {
-      findMany: vi.fn(async ({ where }: { where: { empresaId: number } }) =>
-        clientes.filter((cliente) => cliente.empresaId === where.empresaId),
+      // Este double aplica somente o contexto. Busca e SQL sao validados nos
+      // argumentos da consulta e na suite de integracao, nao por um banco simulado.
+      findMany: vi.fn(async (args: Prisma.ClienteFindManyArgs) =>
+        clientes.filter(
+          (cliente) => cliente.empresaId === args.where?.empresaId,
+        ),
+      ),
+      count: vi.fn(
+        async (args: Prisma.ClienteCountArgs) =>
+          clientes.filter(
+            (cliente) => cliente.empresaId === args.where?.empresaId,
+          ).length,
       ),
       findFirst: vi.fn(
         async ({ where }: { where: { id: number; empresaId: number } }) =>
@@ -29,7 +57,9 @@ export function prismaDouble() {
               cliente.id === where.id && cliente.empresaId === where.empresaId,
           ) ?? null,
       ),
-      findUnique: vi.fn(async () => null),
+      findUnique: vi.fn<
+        (args: Prisma.ClienteFindUniqueArgs) => Promise<{ id: number } | null>
+      >(async () => null),
       create: vi.fn(
         async ({
           data,
@@ -37,13 +67,72 @@ export function prismaDouble() {
           data: { nome: string; telefone: string; empresaId: number };
         }) => ({ id: 33, ...data }),
       ),
+      update: vi.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: { id: number; empresaId: number };
+          data: object;
+        }) => ({ ...where, ...data }),
+      ),
+      delete: vi.fn(
+        async ({ where }: { where: { id: number; empresaId: number } }) =>
+          where,
+      ),
+    },
+    profissional: {
+      findUnique: vi.fn(async (args: Prisma.ProfissionalFindUniqueArgs) =>
+        args.where.id === profissional.id &&
+        args.where.empresaId === profissional.empresaId
+          ? profissional
+          : null,
+      ),
+      findMany: vi.fn(async (args: Prisma.ProfissionalFindManyArgs) =>
+        args.where?.empresaId === 1 ? [profissional] : [],
+      ),
+      count: vi.fn(async () => 1),
+      create: vi.fn(),
+      update: vi.fn(async ({ data }: { data: object }) => ({
+        ...profissional,
+        ...data,
+      })),
+      delete: vi.fn(),
     },
     servico: {
-      findUnique: vi.fn(),
-      delete: vi.fn(),
+      findUnique: vi.fn(
+        async (args: Prisma.ServicoFindUniqueArgs): Promise<unknown> =>
+          args.where.id === servico.id &&
+          args.where.empresaId === servico.empresaId
+            ? servico
+            : null,
+      ),
+      findMany: vi.fn(async (args: Prisma.ServicoFindManyArgs) =>
+        args.where?.empresaId === 1 ? [servico] : [],
+      ),
+      count: vi.fn(async () => 1),
+      create: vi.fn(async ({ data }: { data: object }) => ({
+        ...servico,
+        ...data,
+        preco: new Prisma.Decimal((data as { preco: string }).preco),
+      })),
+      update: vi.fn(async ({ data }: { data: object }) => ({
+        ...servico,
+        ...data,
+        preco: new Prisma.Decimal(
+          (data as { preco?: string }).preco ?? servico.preco,
+        ),
+      })),
+      delete: vi.fn(async (): Promise<unknown> => servico),
+    },
+    agendamento: {
+      count: vi.fn(async () => 0),
+      findFirst: vi.fn(async () => null),
+      create: vi.fn(),
     },
     agendamentoServico: {
       count: vi.fn(async () => 0),
+      updateMany: vi.fn(),
     },
   };
 }
