@@ -4,8 +4,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmpresasService } from '../empresas/empresas.service.js';
 import { chaveOperacao } from './chave-operacao.js';
 import { DETALHES, respostaAgendamento } from './agendamento-resposta.js';
-import { AgendaQueryDto } from './dto/agenda-query.dto.js';
-import { intervaloDia } from './expediente.js';
+import { AgendaQueryDto, PendentesQueryDto } from './dto/agenda-query.dto.js';
+import { diaNoFuso, intervaloDia } from './expediente.js';
 
 @Injectable()
 export class AgendaLeituraService {
@@ -74,4 +74,76 @@ export class AgendaLeituraService {
     return respostaAgendamento(item);
   }
 
+  async pendentes(empresaId: number, query: PendentesQueryDto) {
+    const empresa = await this.empresas.validarEmpresaAtiva(empresaId);
+    const agora = new Date();
+    const hoje = intervaloDia(
+      diaNoFuso(agora, empresa.fusoHorario),
+      empresa.fusoHorario,
+    );
+    const filtroDia = query.data
+      ? intervaloDia(query.data, empresa.fusoHorario)
+      : undefined;
+    const base: Prisma.AgendamentoWhereInput = {
+      empresaId,
+      status: 'AGENDADO',
+      ...(query.profissionalId ? { profissionalId: query.profissionalId } : {}),
+    };
+    const where: Prisma.AgendamentoWhereInput = {
+      ...base,
+      ...(filtroDia
+        ? { inicio: { gte: filtroDia.inicio, lt: filtroDia.fim } }
+        : {}),
+    };
+    return this.prisma.$transaction(
+      async (tx) => {
+        const [total, atrasadosLista, pendentes, atrasados, hojeTotal] =
+          await Promise.all([
+            tx.agendamento.count({ where }),
+            tx.agendamento.count({ where: { ...where, fim: { lt: agora } } }),
+            tx.agendamento.count({ where: base }),
+            tx.agendamento.count({ where: { ...base, fim: { lt: agora } } }),
+            tx.agendamento.count({
+              where: { ...base, inicio: { gte: hoje.inicio, lt: hoje.fim } },
+            }),
+          ]);
+        const offset = (query.page - 1) * query.pageSize;
+        const takeAtrasados = Math.max(
+          0,
+          Math.min(query.pageSize, atrasadosLista - offset),
+        );
+        const orderBy = [{ inicio: 'asc' as const }, { id: 'asc' as const }];
+        const antigos = takeAtrasados
+          ? await tx.agendamento.findMany({
+              where: { ...where, fim: { lt: agora } },
+              include: DETALHES,
+              orderBy,
+              skip: offset,
+              take: takeAtrasados,
+            })
+          : [];
+        const proximos =
+          query.pageSize > takeAtrasados
+            ? await tx.agendamento.findMany({
+                where: { ...where, fim: { gte: agora } },
+                include: DETALHES,
+                orderBy,
+                skip: Math.max(0, offset - atrasadosLista),
+                take: query.pageSize - takeAtrasados,
+              })
+            : [];
+        return {
+          resumo: { pendentes, atrasados, hoje: hojeTotal },
+          items: [...antigos, ...proximos].map((item) => ({
+            ...respostaAgendamento(item),
+            atrasado: item.fim < agora,
+          })),
+          total,
+          page: query.page,
+          pageSize: query.pageSize,
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+  }
 }

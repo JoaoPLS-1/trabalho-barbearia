@@ -1,7 +1,7 @@
 import { AgendaLeituraService } from './agenda-leitura.service.js';
 import { EmpresasService } from '../empresas/empresas.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { AgendaQueryDto } from './dto/agenda-query.dto.js';
+import { AgendaQueryDto, PendentesQueryDto } from './dto/agenda-query.dto.js';
 import {
   agendaDouble,
   reservaFixture,
@@ -42,6 +42,42 @@ describe('Painel e consultas da agenda', () => {
     };
   }
 
+  it('inclui dias anteriores e prioriza atrasos antes de atendimentos em andamento', async () => {
+    const { service } = setup();
+    const result = await service.pendentes(
+      1,
+      Object.assign(new PendentesQueryDto(), { pageSize: 2 }),
+    );
+    expect(result.items.map((item) => item.id)).toEqual([1, 3]);
+    expect(result.resumo).toEqual({ pendentes: 3, atrasados: 2, hoje: 2 });
+    expect(result.total).toBe(3);
+  });
+
+  it('continua corretamente na página seguinte e além do final', async () => {
+    const { service } = setup();
+    const query = Object.assign(new PendentesQueryDto(), {
+      pageSize: 2,
+      page: 2,
+    });
+    expect(
+      (await service.pendentes(1, query)).items.map((item) => item.id),
+    ).toEqual([2]);
+    expect((await service.pendentes(1, { ...query, page: 9 })).items).toEqual(
+      [],
+    );
+  });
+
+  it('filtra a lista por dia sem esconder atrasos globais nos indicadores', async () => {
+    const { service } = setup();
+    const result = await service.pendentes(
+      1,
+      Object.assign(new PendentesQueryDto(), { data: '2030-01-07' }),
+    );
+    expect(result.items.map((item) => item.id)).toEqual([3, 2]);
+    expect(result.resumo.atrasados).toBe(2);
+    expect(result.total).toBe(2);
+  });
+
   it('aplica cliente, profissional e estado ao histórico com limites no fuso', async () => {
     const { db, service } = setup();
     await service.findAll(
@@ -75,5 +111,11 @@ describe('Painel e consultas da agenda', () => {
     await expect(
       service.operacao(99, '11111111-1111-4111-8111-111111111111'),
     ).rejects.toThrow('Empresa não encontrada');
+  });
+  it('calcula hoje no dia civil da empresa quando a data UTC já mudou', async () => {
+    const { service } = setup();
+    vi.setSystemTime(new Date('2030-01-08T02:00:00Z'));
+    const result = await service.pendentes(1, new PendentesQueryDto());
+    expect(result.resumo.hoje).toBe(2);
   });
 });

@@ -4,14 +4,14 @@ Sistema para a recepção operar clientes, profissionais, serviços e agendament
 
 ## Estado do desenvolvimento
 
-A API da aula está em preparação para integração com o front-end. Os cadastros possuem busca paginada, telefone normalizado, preço decimal e desativação com histórico preservado. As rotas completas de agenda ainda estão em construção. O front-end, a agenda completa e os dados de demonstração serão entregues nas próximas partes.
+A API da aula está em preparação para integração com o front-end. Os cadastros possuem busca paginada, telefone normalizado, preço decimal e desativação com histórico preservado. A agenda da API oferece disponibilidade, reserva com chave de operação, finalização e painel de pendências. O front-end, a agenda completa e os dados de demonstração serão entregues nas próximas partes.
 
 ## Arquitetura e decisões
 
 - API NestJS e TypeScript com Prisma e MySQL; front-end planejado em React, TypeScript e Vite.
 - Empresa corrente enviada pelo header x-empresa-id. A API valida o contexto e restringe as operações à empresa.
-- Profissionais e serviços terão desativação para preservar histórico.
-- Reservas deverão preservar preço e duração contratados e impedir sobreposição na API.
+- Profissionais e serviços usam desativação para preservar histórico.
+- A API copia os dados contratados e implementa a confirmação transacional de reservas; a execução com MySQL real continua pendente.
 - Agendamentos pendentes serão resolvidos pela recepção como concluídos, cancelados ou faltas.
 - Pagamentos, estoque e integração automática com WhatsApp ficam fora da primeira entrega.
 
@@ -101,6 +101,42 @@ Para migrar dados existentes, parar a API e conferir um backup. A migração ver
 O MySQL não torna toda a sequência de alterações de estrutura atômica. Se uma migração falhar, examinar o estado e seguir o fluxo de recuperação de migrações antes de tentar novamente; não executar reset em um banco de uso normal.
 
 A base antiga já preservava o preço cobrado, mas não o nome e a duração de cada serviço contratado. Para registros anteriores, a migração copia nome e duração do catálogo disponível no momento da migração, pois não é possível reconstruir alterações históricas perdidas. Novas reservas preservam esses três valores desde a criação.
+
+## Agenda da API
+
+O expediente padrão é segunda a sábado, 09h às 19h, no fuso America/Sao_Paulo. POST/PATCH de empresas aceita fusoHorario (IANA), aberturaMin, fechamentoMin e diasFuncionamento (1 = segunda, 7 = domingo). Abertura e fechamento usam minutos desde meia-noite, em múltiplos de 15, sem atravessar o dia. Por exemplo, 540 significa 09h. Alterações não remanejam reservas existentes.
+
+| Ação                        | Rota                                                                              |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| Disponibilidade             | GET /agendamentos/disponibilidade?data=AAAA-MM-DD&profissionalId=1&servicoIds=1,2 |
+| Reservar                    | POST /agendamentos                                                                |
+| Confirmar resultado incerto | GET /agendamentos/operacoes/:chave                                                |
+| Agenda e histórico          | GET /agendamentos?data=AAAA-MM-DD&profissionalId=1&clienteId=1&status=AGENDADO    |
+| Detalhes                    | GET /agendamentos/:id                                                             |
+| Finalizar                   | PATCH /agendamentos/:id/status                                                    |
+| Painel                      | GET /agendamentos/pendentes                                                       |
+
+Todas essas rotas exigem x-empresa-id e empresa ativa. Agenda e painel aceitam page e pageSize, até 100 itens por página. Os filtros de cliente, profissional, data e estado são opcionais na consulta da agenda; o painel aceita data e profissional. GET /empresas?ativa=true permite listar as empresas disponíveis na entrada.
+
+A disponibilidade soma os serviços ativos da empresa e retorna duração, total decimal e inícios/fins em ISO UTC. A data da consulta é interpretada no fuso da empresa. Horários passados, ocupados, ambíguos ou inexistentes em mudanças de fuso não são oferecidos. A duração inteira deve caber no expediente. Reservas adjacentes são aceitas. A disponibilidade é uma consulta: o horário é revalidado na confirmação.
+
+Para reservar, enviar { clienteId, profissionalId, servicoIds, inicio } e o header Idempotency-Key com um UUID v4 novo para cada pedido lógico. inicio exige ISO com segundos e Z ou offset, por exemplo "2030-01-07T09:00:00-03:00". Preço, duração e fim são calculados pela API.
+
+Reserva nova responde 201. Repetir a mesma chave com o mesmo pedido retorna 200 e a reserva existente, inclusive após seu início ou uma alteração de catálogo. A chave é isolada por empresa; pedido diferente com a mesma chave retorna 409 OPERACAO_DIVERGENTE. Preços e totais retornam como strings com duas casas. O hash interno do pedido não é exposto.
+
+Em caso de demora ou resposta perdida, consultar /operacoes/:chave ou repetir exatamente o mesmo pedido com a mesma chave. Um 404 de consulta pode significar que a primeira requisição ainda está em andamento. Não gerar outra chave para a mesma tentativa incerta.
+
+A confirmação usa transação com bloqueios parametrizados, primeiro na empresa e depois no profissional, com nova checagem de situação, expediente e sobreposição antes de gravar a reserva e os itens contratados. Alterações de empresa, profissionais e serviços usam a mesma coordenação. A serialização por empresa simplifica a consistência para o volume da recepção; empresas diferentes continuam independentes. Conflitos e falhas transacionais têm mensagens de recuperação, sem detalhes do banco. A verificação desses bloqueios em MySQL real ainda está pendente.
+
+AGENDADO pode virar CONCLUIDO, CANCELADO ou FALTOU. Concluir e marcar falta exigem que o início previsto tenha chegado. Repetir o mesmo estado final não faz outra alteração; mudar um estado final para outro retorna 409 ESTADO_INVALIDO. Cancelar libera a ocupação sem apagar o histórico. Não existe DELETE de agendamento nem edição de horário; para remarcar, cancelar e cadastrar outra reserva.
+
+O painel inclui todos os AGENDADOS, inclusive pendências de dias anteriores. Atrasado significa fim anterior ao instante atual. A lista prioriza atrasados e depois os demais, com paginação estável por início e id dentro de cada grupo. Indicadores pendentes, atrasados e hoje respeitam o profissional, mas ignoram o filtro de data da lista para manter as pendências globais visíveis. Hoje é o dia civil da empresa.
+
+## Migração do expediente e das operações
+
+A migração 20261126000000_expediente_e_operacoes também está preparada e não foi aplicada. Ela preenche o expediente das empresas existentes, cria o padrão JSON no MySQL e adiciona chave/hash opcionais para preservar reservas legadas sem inventar chaves de operação. As novas reservas exigem a chave pela API.
+
+A suíte de integração inclui testes de duas reservas simultâneas, repetição simultânea da mesma chave, rollback com itens contratados, finalizações divergentes e alterações concorrentes de preço ou situação. Esses testes devem rodar em banco exclusivo antes de considerar a concorrência validada. As suítes sem banco testam regras e HTTP, sem simular garantias reais de locks e rollback.
 
 ## Colaboração
 

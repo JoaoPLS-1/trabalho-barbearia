@@ -18,6 +18,7 @@ import { CreateAgendamentoDto } from './dto/create-agendamento.dto.js';
 import {
   AgendaQueryDto,
   DisponibilidadeQueryDto,
+  PendentesQueryDto,
 } from './dto/agenda-query.dto.js';
 import { UpdateStatusDto } from './dto/update-status.dto.js';
 
@@ -43,6 +44,11 @@ export class AgendamentosController {
   @Get()
   findAll(@EmpresaId() empresaId: number, @Query() query: AgendaQueryDto) {
     return this.consultas.findAll(empresaId, query);
+  }
+
+  @Get('pendentes')
+  pendentes(@EmpresaId() empresaId: number, @Query() query: PendentesQueryDto) {
+    return this.consultas.pendentes(empresaId, query);
   }
 
   @Get('disponibilidade')
