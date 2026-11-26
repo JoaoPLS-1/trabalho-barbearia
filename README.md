@@ -35,10 +35,10 @@ As instruções de execução do front, carga de exemplos e demonstração serã
 
 ## Participantes
 
-| Identificação | Conta 
-| --- | --- | --- |
-| João | JoaoPLS-1 
-| Helena | helenamoreto 
-| Victor | Hcklz 
+| Identificação| Conta 
+
+| João   |      JoaoPLS-1 
+| Helena |      helenamoreto 
+| Victor |      Hcklz 
 
 
