@@ -92,6 +92,36 @@ test('formulário: protege voltar e trocar de empresa; permite descartar', async
   ).toBeNull();
 });
 
+test('profissional: cadastra, desativa com aviso de reservas e filtra inativos', async ({
+  page,
+}) => {
+  await start(page, '/profissionais/novo');
+  await page.getByLabel('Nome', { exact: false }).fill('Profissional novo');
+  await page.getByRole('button', { name: 'Salvar cadastro' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Profissional novo', exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole('link', { name: 'Editar Profissional API 1', exact: true })
+    .click();
+  await page.getByRole('checkbox').uncheck();
+  await page.getByRole('button', { name: 'Salvar cadastro' }).click();
+  await expect(
+    page.getByText(/1 atendimento\(s\) ainda agendado/),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Confirmar desativação' }).click();
+  await page
+    .getByRole('combobox', { name: 'Situação', exact: true })
+    .selectOption('false');
+  await expect(
+    page.getByRole('heading', { name: 'Profissional API 1', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Profissional novo', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText('Inativo', { exact: true })).toBeVisible();
+});
+
 test('cadastros: lista vazia, filtros, paginação e erro de leitura recuperável', async ({
   page,
 }) => {
