@@ -72,8 +72,6 @@ function PendingArea({ title }: { title: string }) {
 const areas = [
   ['/clientes/:id/historico', 'Histórico do cliente'],
   ['/agendamentos/historico', 'Histórico de atendimentos'],
-  ['/servicos', 'Serviços'],
-  ['/servicos/novo', 'Novo serviço'],
   ['/agendamentos', 'Agenda'],
   ['/agendamentos/novo', 'Novo agendamento'],
 ];
@@ -92,7 +90,7 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
             <Route element={<CompanyGate />}>
               <Route element={<Shell />}>
                 <Route path="/painel" element={<Dashboard />} />
-                {(['clientes', 'profissionais'] as const).map(
+                {(['clientes', 'profissionais', 'servicos'] as const).map(
                   (kind) => (
                     <Route key={kind}>
                       <Route

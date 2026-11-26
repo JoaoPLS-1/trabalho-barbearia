@@ -1,6 +1,30 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
+import { decimalPrice } from '../src/features/cadastros/config';
 import { api } from '../src/lib/api';
 afterEach(() => vi.unstubAllGlobals());
+
+describe('Preço digitado na recepção', () => {
+  it('normaliza centavos como texto, inclusive zeros e vírgula', () => {
+    expect(decimalPrice('40,10')).toBe('40.10');
+    expect(decimalPrice(' 0001,5 ')).toBe('1.50');
+    expect(decimalPrice('0,01')).toBe('0.01');
+    expect(decimalPrice('99999999.99')).toBe('99999999.99');
+  });
+  it('recusa frações extras, agrupamento, expoente, zero e excesso de valor', () => {
+    for (const value of [
+      '0',
+      '0,00',
+      '-1',
+      '1,001',
+      '1e2',
+      '1.000,00',
+      '100000000',
+      '',
+      'NaN',
+    ])
+      expect(decimalPrice(value)).toBeNull();
+  });
+});
 
 describe('Validação por campo na API', () => {
   it('preserva o erro de telefone duplicado e envia a gravação no contexto selecionado', async () => {

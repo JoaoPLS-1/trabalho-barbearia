@@ -122,6 +122,38 @@ test('profissional: cadastra, desativa com aviso de reservas e filtra inativos',
   await expect(page.getByText('Inativo', { exact: true })).toBeVisible();
 });
 
+test('serviço: valida duração e preço, grava centavos, edita e preserva o contratado', async ({
+  page,
+}) => {
+  await start(page, '/servicos/novo');
+  await page.getByLabel('Nome', { exact: false }).fill('Barba desenhada');
+  await page.getByLabel('Preço (R$)').fill('1,001');
+  await page.getByLabel('Duração (minutos)').fill('4');
+  await page.getByRole('button', { name: 'Salvar cadastro' }).click();
+  await expect(page.getByText(/Informe um preço entre/)).toBeVisible();
+  await expect(page.getByText(/Informe uma duração inteira/)).toBeVisible();
+  await page.getByLabel('Preço (R$)').fill('25,09');
+  await page.getByLabel('Duração (minutos)').fill('25');
+  const created = page.waitForResponse(
+    (r) => r.url().includes('/servicos') && r.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Salvar cadastro' }).click();
+  expect(await (await created).json()).toMatchObject({
+    preco: '25.09',
+    duracaoMin: 25,
+  });
+  await expect(page.getByText('R$ 25,09', { exact: true })).toBeVisible();
+  await page
+    .getByRole('link', { name: 'Editar Corte HTTP', exact: true })
+    .click();
+  await page.getByLabel('Nome', { exact: false }).fill('Corte atualizado');
+  await page.getByLabel('Preço (R$)').fill('75,99');
+  await page.getByRole('button', { name: 'Salvar cadastro' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Corte atualizado', exact: true }),
+  ).toBeVisible();
+});
+
 test('cadastros: lista vazia, filtros, paginação e erro de leitura recuperável', async ({
   page,
 }) => {
