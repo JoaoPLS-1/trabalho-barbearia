@@ -35,10 +35,10 @@ As instruções de execução do front, carga de exemplos e demonstração serã
 
 ## Participantes
 
-| Identificação | Conta | Email de autoria |
+| Identificação | Conta 
 | --- | --- | --- |
-| João | JoaoPLS-1 | barrancoij@gmail.com |
-| Helena | helenamoreto | helenamoreto2008@gmail.com |
-| Victor | Hcklz | victorzapkkj@gmail.com |
+| João | JoaoPLS-1 
+| Helena | helenamoreto 
+| Victor | Hcklz 
 
-A primeira parte pertence a João. As partes seguintes alternam responsáveis em blocos, com 12 microcommits planejados para cada participante. As publicações devem usar a conta correspondente, conforme o fluxo em docs/ENTREGAS.md.
+
