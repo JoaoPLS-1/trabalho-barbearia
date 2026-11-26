@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient } from '@tanstack/react-query';
 import { App } from '../src/app/App';
 import { empresas, painel } from './fixtures';
@@ -45,9 +45,12 @@ function mount(path = '/') {
   });
   clients.push(client);
   render(
-    <MemoryRouter initialEntries={[path]}>
-      <App queryClient={client} />
-    </MemoryRouter>,
+    <RouterProvider
+      router={createMemoryRouter(
+        [{ path: '*', element: <App queryClient={client} /> }],
+        { initialEntries: [path] },
+      )}
+    />,
   );
   return client;
 }

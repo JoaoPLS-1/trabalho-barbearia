@@ -6,11 +6,13 @@ export function Dialog({
   onClose,
   children,
   className = '',
+  locked = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  locked?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
@@ -23,8 +25,12 @@ export function Dialog({
       aria-labelledby={id}
       className={'dialog ' + className}
       onClose={onClose}
+      onCancel={(event) => {
+        if (locked) event.preventDefault();
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) ref.current?.close();
+        if (!locked && event.target === event.currentTarget)
+          ref.current?.close();
       }}
     >
       <header className="dialog-header">
@@ -32,6 +38,7 @@ export function Dialog({
         <button
           className="icon-button"
           type="button"
+          disabled={locked}
           aria-label={'Fechar ' + title.toLowerCase()}
           onClick={() => ref.current?.close()}
         >

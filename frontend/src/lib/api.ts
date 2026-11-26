@@ -3,6 +3,7 @@ export class ApiError extends Error {
     message: string,
     public status = 0,
     public code?: string,
+    public fieldErrors?: Record<string, string[]>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -51,13 +52,18 @@ export async function api<T>(
     });
     const body: unknown = await response.json().catch(() => null);
     if (!response.ok) {
-      const error = body as { message?: unknown; code?: unknown } | null;
+      const error = body as {
+        message?: unknown;
+        code?: unknown;
+        fieldErrors?: unknown;
+      } | null;
       throw new ApiError(
         typeof error?.message === 'string'
           ? error.message
           : 'Não foi possível concluir a consulta. Tente novamente.',
         response.status,
         typeof error?.code === 'string' ? error.code : undefined,
+        readFieldErrors(error?.fieldErrors),
       );
     }
     if (body === null)
@@ -84,4 +90,16 @@ export function errorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
     : 'Não foi possível carregar os dados.';
+}
+
+function readFieldErrors(value: unknown): Record<string, string[]> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return undefined;
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string[]] =>
+        Array.isArray(entry[1]) &&
+        entry[1].every((message: unknown) => typeof message === 'string'),
+    ),
+  );
 }

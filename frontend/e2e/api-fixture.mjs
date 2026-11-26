@@ -52,7 +52,68 @@ const registros = empresas.map((empresa) => ({
     },
   ],
 }));
+
+const clientes = empresas.map((empresa) => ({
+  id: empresa.id + 20,
+  empresaId: empresa.id,
+  nome: empresa.id === 1 ? 'Cliente HTTP Centro' : 'Cliente HTTP Vila',
+  telefone: '11999990001',
+}));
+const servicos = empresas.map((empresa) => ({
+  id: empresa.id + 30,
+  empresaId: empresa.id,
+  nome: 'Corte HTTP',
+  preco: new Prisma.Decimal('40.10'),
+  duracaoMin: 30,
+  ativo: true,
+}));
+let nextId = 100;
+function repository(items, monetary = false) {
+  const find = (where) =>
+    items.find((item) => matches(item, where.empresaId_telefone ?? where)) ??
+    null;
+  return {
+    findMany: async ({ where, skip = 0, take = 100 }) =>
+      items
+        .filter((item) => matches(item, where))
+        .sort((a, b) => a.nome.localeCompare(b.nome) || a.id - b.id)
+        .slice(skip, skip + take),
+    count: async ({ where }) =>
+      items.filter((item) => matches(item, where)).length,
+    findFirst: async ({ where }) => find(where),
+    findUnique: async ({ where }) => find(where),
+    create: async ({ data }) => {
+      const item = {
+        id: nextId++,
+        ...(items !== clientes ? { ativo: true } : {}),
+        ...data,
+      };
+      if (monetary) item.preco = new Prisma.Decimal(item.preco);
+      items.push(item);
+      return item;
+    },
+    update: async ({ where, data }) => {
+      const item = find(where);
+      if (!item) throw new Error('Fixture inexistente');
+      Object.assign(item, data);
+      if (monetary && data.preco !== undefined)
+        item.preco = new Prisma.Decimal(data.preco);
+      return item;
+    },
+  };
+}
+
 function matches(item, where = {}) {
+  if (where.OR && !where.OR.some((part) => matches(item, part))) return false;
+  for (const field of ['nome', 'telefone']) {
+    if (typeof where[field] === 'string' && where[field] !== item[field])
+      return false;
+    if (
+      where[field]?.contains &&
+      !item[field]?.toLowerCase().includes(where[field].contains.toLowerCase())
+    )
+      return false;
+  }
   for (const field of [
     'id',
     'empresaId',
@@ -81,14 +142,11 @@ const prisma = {
     findUnique: async ({ where }) =>
       empresas.find((item) => matches(item, where)) ?? null,
   },
-  profissional: {
-    findMany: async ({ where, skip = 0, take = 100 }) =>
-      profissionais
-        .filter((item) => matches(item, where))
-        .slice(skip, skip + take),
-    count: async ({ where }) =>
-      profissionais.filter((item) => matches(item, where)).length,
-  },
+  $queryRaw: async (_query, id) =>
+    empresas.filter((item) => item.id === id).map(({ id }) => ({ id })),
+  cliente: repository(clientes),
+  profissional: repository(profissionais),
+  servico: repository(servicos, true),
   agendamento: {
     findMany: async ({ where, skip = 0, take = 100 }) =>
       registros

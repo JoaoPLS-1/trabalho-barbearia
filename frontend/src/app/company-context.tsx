@@ -1,6 +1,13 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { api, ApiError, errorMessage } from '../lib/api';
 import type { Empresa } from '../lib/types';
 import { StatePanel } from '../components/StatePanel';
@@ -32,6 +39,15 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     id: storedCompany(),
     version: 0,
   }));
+  const location = useLocation();
+  const previousPath = useRef(location.pathname);
+  // Limpar somente depois de a navegação ser aceita pelo formulário.
+  useEffect(() => {
+    const changed = previousPath.current !== location.pathname;
+    previousPath.current = location.pathname;
+    if (changed && location.pathname === '/' && selection.id !== null)
+      choose(null);
+  }, [location.pathname, selection.id]);
   function choose(id: number | null) {
     // Cancelar antes de limpar; todos os fetches consomem o AbortSignal.
     void client.cancelQueries();
@@ -61,10 +77,8 @@ export function useActiveCompany() {
   return company;
 }
 export function useChangeCompany() {
-  const { choose } = useCompanySelection();
   const navigate = useNavigate();
   return () => {
-    choose(null);
     navigate('/', { replace: true });
   };
 }

@@ -5,6 +5,8 @@ import { createQueryClient } from '../lib/query';
 import { CompanyGate, CompanyProvider } from './company-context';
 import { CompanyChoice } from '../features/empresas/CompanyChoice';
 import { Dashboard } from '../features/dashboard/Dashboard';
+import { CadastroList } from '../features/cadastros/CadastroList';
+import { CadastroForm } from '../features/cadastros/CadastroForm';
 import { Shell } from './Shell';
 import { StatePanel } from '../components/StatePanel';
 
@@ -68,15 +70,14 @@ function PendingArea({ title }: { title: string }) {
   );
 }
 const areas = [
-  ['/clientes', 'Clientes'],
-  ['/clientes/novo', 'Novo cliente'],
+  ['/clientes/:id/historico', 'Histórico do cliente'],
+  ['/agendamentos/historico', 'Histórico de atendimentos'],
   ['/profissionais', 'Profissionais'],
   ['/profissionais/novo', 'Novo profissional'],
   ['/servicos', 'Serviços'],
   ['/servicos/novo', 'Novo serviço'],
   ['/agendamentos', 'Agenda'],
   ['/agendamentos/novo', 'Novo agendamento'],
-  ['/agendamentos/historico', 'Histórico de atendimentos'],
 ];
 
 export function App({ queryClient }: { queryClient?: QueryClient }) {
@@ -93,6 +94,24 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
             <Route element={<CompanyGate />}>
               <Route element={<Shell />}>
                 <Route path="/painel" element={<Dashboard />} />
+                {(['clientes'] as const).map(
+                  (kind) => (
+                    <Route key={kind}>
+                      <Route
+                        path={'/' + kind}
+                        element={<CadastroList kind={kind} />}
+                      />
+                      <Route
+                        path={'/' + kind + '/novo'}
+                        element={<CadastroForm kind={kind} />}
+                      />
+                      <Route
+                        path={'/' + kind + '/:id/editar'}
+                        element={<CadastroForm kind={kind} />}
+                      />
+                    </Route>
+                  ),
+                )}
                 {areas.map(([path, title]) => (
                   <Route
                     key={path}
