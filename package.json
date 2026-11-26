@@ -28,7 +28,8 @@
     "test:web": "npm run test --workspace=frontend",
     "test:web:e2e": "npm run db:generate && npm run build && npm run test:e2e --workspace=frontend",
     "typecheck:web": "npm run typecheck --workspace=frontend",
-    "lint:web": "oxlint frontend/src frontend/test frontend/e2e"
+    "lint:web": "oxlint frontend/src frontend/test frontend/e2e",
+    "db:seed": "npm run db:generate && npm run build && prisma db seed --config prisma7.config.ts"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

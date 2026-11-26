@@ -228,3 +228,22 @@ Cada pedido de reserva usa uma chave UUID enviada em Idempotency-Key. Antes do e
 Nos detalhes do atendimento, concluir ou marcar falta só fica disponível a partir do início previsto. Cancelar pode ocorrer antes e mantém o histórico. Todas as ações exigem confirmação, e a API revalida o estado. Resposta incerta de finalização exige consultar a situação antes de repetir a mesma ação; as demais ações ficam bloqueadas até resolver a consulta. Uma atualização confirmada invalida as consultas da empresa para atualizar painel, agenda e histórico.
 
 Os testes de navegador cobrem a reserva e o cancelamento contra NestJS com persistência isolada, conflitos controlados, perda de resposta antes e depois da gravação, recuperação após recarregar, chave e corpo reutilizados, cadastro rápido, conclusão, falta e tela de celular. Eles não comprovam transações MySQL: migrações e testes com banco real seguem pendentes conforme combinado.
+
+## Dados de demonstração
+
+O comando de seed está preparado, mas ainda não foi executado neste ambiente. Quando a execução com MySQL for retomada, configurar DATABASE_URL para um banco de desenvolvimento ou demonstração, aplicar as migrações e executar explicitamente:
+
+```bash
+npm run db:migrate
+npm run db:seed
+```
+
+O comando gera Prisma, compila a API e executa scripts/seed.mjs pelo seed configurado no Prisma. Não há seed automático ao iniciar a API. Os dados são fictícios: Aurora Centro (id 10001, fuso America/Sao_Paulo) e Aurora Vila (id 10002, fuso America/Manaus), com expediente de demonstração das 9h às 19h em todos os dias. Clientes têm nomes e telefones semelhantes nas duas empresas para demonstrar isolamento. Há profissionais e serviços ativos/inativos, serviços com durações diferentes, reservas futuras, pendências antigas e situações concluída, cancelada e falta. Um atendimento concluído mostra preço contratado de R$ 35,00, enquanto o catálogo atual mostra R$ 40,10.
+
+Cadastros usam IDs reservados entre 10001 e 10104; os bancos ajustam sua sequência de IDs após as inserções. Colisão de empresa ou vínculo de outra empresa interrompe a transação sem sobrescrever registros. O seed não atualiza nem apaga cadastros e atendimentos existentes. Executá-lo outra vez no mesmo dia civil reaproveita os atendimentos; em outro dia, acrescenta cenários relativos à nova data, preservando o histórico anterior. Chaves de operação são determinísticas por empresa, data civil e cenário.
+
+Alterações do usuário em catálogo, situação, expediente ou fuso são preservadas. Novos cenários incompatíveis com essas alterações ou com reservas existentes são omitidos e contados no resultado do comando. Um atendimento criado pelo seed e depois cancelado ou concluído não é reaberto em outra execução. O seed bloqueia execução com NODE_ENV=production e usa uma transação com a mesma ordem de coordenação por empresa.
+
+O plano das datas, vínculos, chaves e snapshots é testado sem banco. A execução do seed e sua validação com MySQL real continuam pendentes, conforme combinado.
+
+A configuração usa o [seed explícito do Prisma 7](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/seeding).
