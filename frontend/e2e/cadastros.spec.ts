@@ -54,7 +54,6 @@ test('cliente: cria, busca, edita e apresenta duplicidade da API junto ao telefo
     'Outro cliente',
   );
 });
-
 test('formulário: protege voltar e trocar de empresa; permite descartar', async ({
   page,
 }) => {
@@ -91,7 +90,6 @@ test('formulário: protege voltar e trocar de empresa; permite descartar', async
     await page.evaluate(() => sessionStorage.getItem('barbearia.empresaId')),
   ).toBeNull();
 });
-
 test('profissional: cadastra, desativa com aviso de reservas e filtra inativos', async ({
   page,
 }) => {
@@ -121,7 +119,6 @@ test('profissional: cadastra, desativa com aviso de reservas e filtra inativos',
   ).toHaveCount(0);
   await expect(page.getByText('Inativo', { exact: true })).toBeVisible();
 });
-
 test('serviço: valida duração e preço, grava centavos, edita e preserva o contratado', async ({
   page,
 }) => {
@@ -152,8 +149,72 @@ test('serviço: valida duração e preço, grava centavos, edita e preserva o co
   await expect(
     page.getByRole('heading', { name: 'Corte atualizado', exact: true }),
   ).toBeVisible();
+  await page.goto('/clientes/21/historico');
+  await expect(page.getByText('Corte HTTP', { exact: true })).toBeVisible();
+  await expect(page.getByText('R$ 40,10', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Ver detalhes/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('Corte HTTP');
+  await expect(page.getByRole('dialog')).toContainText('R$ 40,10');
 });
-
+test('histórico: filtra situação e data, mantém contexto e recusa cliente de outra empresa', async ({
+  page,
+}) => {
+  await start(page, '/clientes/21/historico');
+  await expect(
+    page.getByRole('heading', { name: 'Histórico do cliente' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('list', { name: 'Atendimentos no histórico' }),
+  ).toContainText('Cliente HTTP Centro');
+  await page.getByLabel('Situação do atendimento').selectOption('CANCELADO');
+  await expect(
+    page.getByRole('heading', { name: 'Nenhum atendimento encontrado' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Limpar filtros' }).click();
+  await page.getByLabel('Data do atendimento').fill('2030-01-07');
+  await expect(
+    page.getByRole('list', { name: 'Atendimentos no histórico' }),
+  ).toBeVisible();
+  await page.goto('/clientes/22/historico');
+  await expect(
+    page.getByRole('heading', { name: 'Não foi possível abrir o cliente' }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Cliente HTTP Vila', { exact: true }),
+  ).toHaveCount(0);
+});
+test('celular: cadastros, edição e histórico sem transbordamento horizontal', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await start(page, '/servicos');
+  await expect(
+    page.getByRole('heading', { name: 'Serviços', exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: resolve('../.tmp/parte6-servicos-mobile.png'),
+    fullPage: true,
+  });
+  for (const path of [
+    '/clientes',
+    '/clientes/21/editar',
+    '/clientes/21/historico',
+  ]) {
+    await page.goto(path);
+    await expect(
+      page.locator('.catalog-list, .editor-card, .history-list'),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await page.screenshot({
+    path: resolve('../.tmp/parte6-historico-mobile.png'),
+    fullPage: true,
+  });
+});
 test('cadastros: lista vazia, filtros, paginação e erro de leitura recuperável', async ({
   page,
 }) => {
@@ -201,7 +262,6 @@ test('cadastros: lista vazia, filtros, paginação e erro de leitura recuperáve
     fullPage: true,
   });
 });
-
 
 test('formulário: recarregar pede confirmação e cancelar preserva o texto', async ({
   page,

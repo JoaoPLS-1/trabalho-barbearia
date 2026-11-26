@@ -7,6 +7,7 @@ import { CompanyChoice } from '../features/empresas/CompanyChoice';
 import { Dashboard } from '../features/dashboard/Dashboard';
 import { CadastroList } from '../features/cadastros/CadastroList';
 import { CadastroForm } from '../features/cadastros/CadastroForm';
+import { History } from '../features/historico/History';
 import { Shell } from './Shell';
 import { StatePanel } from '../components/StatePanel';
 
@@ -70,8 +71,6 @@ function PendingArea({ title }: { title: string }) {
   );
 }
 const areas = [
-  ['/clientes/:id/historico', 'Histórico do cliente'],
-  ['/agendamentos/historico', 'Histórico de atendimentos'],
   ['/agendamentos', 'Agenda'],
   ['/agendamentos/novo', 'Novo agendamento'],
 ];
@@ -108,6 +107,8 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
                     </Route>
                   ),
                 )}
+                <Route path="/clientes/:id/historico" element={<History />} />
+                <Route path="/agendamentos/historico" element={<History />} />
                 {areas.map(([path, title]) => (
                   <Route
                     key={path}

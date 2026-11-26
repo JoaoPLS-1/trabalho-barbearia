@@ -156,7 +156,7 @@ A primeira entrada exige escolher uma empresa ativa. O sistema guarda somente o 
 
 O dashboard apresenta indicadores, pendências vencidas e futuras, filtros por data e profissional, paginação e detalhes dos serviços contratados. Os dados são atualizados a cada 30 segundos e podem ser atualizados manualmente. Erros de leitura não apagam os filtros; dados antigos ainda visíveis são identificados como última consulta. Empresa inativa bloqueia a lista e oferece outra seleção.
 
-O menu lateral está preparado com os submenus exigidos. Os cadastros web e o formulário de agendamento ainda mostram uma área em preparação; serão implementados nas partes 6 e 7. Nesta parte, o painel permite consultar detalhes, sem ações de gravação ou finalização na interface.
+O menu lateral oferece os submenus de clientes, profissionais, serviços e agendamentos. Os cadastros web permitem buscar, paginar, cadastrar e editar dados da empresa selecionada. Profissionais e serviços podem ser filtrados por situação e desativados com confirmação, preservando reservas e histórico. A agenda e o formulário de nova reserva serão implementados na parte 7; o painel ainda permite somente consultar detalhes, sem finalizar atendimentos pela interface.
 
 ```bash
 npm run build:web
@@ -200,3 +200,18 @@ Trabalhar em mudanças pequenas e revisar os arquivos preparados antes de cada c
 | Victor       | Hcklz        | victorzapkkj@gmail.com     |
 
 Nome e email configurados no Git definem autoria; a conta autenticada para o push é independente.
+
+
+## Cadastros e histórico na recepção
+
+A busca dos cadastros é enviada ao confirmar Buscar ou pressionar Enter; os filtros e a página ficam na URL e podem ser retomados ao voltar pelo navegador. Clientes aceitam nome ou telefone na busca. A API valida telefone brasileiro com DDD e impede duplicidade dentro da mesma empresa. Mensagens de validação aparecem junto ao campo, sem apagar o formulário.
+
+O preço de serviço pode ser digitado com vírgula ou ponto e até duas casas decimais; ele é enviado como texto com centavos, sem aritmética de ponto flutuante. A duração deve ser inteira, de 5 a 600 minutos. Os novos dados do catálogo não substituem nome, duração e preço já contratados nas reservas existentes.
+
+Ao desativar um profissional, a tela consulta a quantidade de atendimentos ainda AGENDADOS, incluindo pendências antigas, e avisa que eles não serão cancelados. A contagem orienta a recepção; ela não reserva nem bloqueia a agenda enquanto a confirmação está aberta. Não há exclusão de cadastros pela interface.
+
+Formulários com alterações pedem confirmação antes de cancelar, voltar, navegar pelo menu ou trocar de empresa. A seleção e o cache só são limpos depois da navegação aceita. Fechar ou recarregar a aba usa a confirmação nativa do navegador quando disponível. Enquanto uma gravação está em andamento, o envio e a saída pela navegação interna ficam bloqueados. Falha de rede ou resposta de servidor incerta orienta consultar os cadastros antes de repetir o envio; as mutações não têm repetição automática.
+
+O histórico pode ser aberto pela lista de clientes ou pelo submenu de agendamentos. Ele inclui todas as situações, com filtros por data e situação e paginação, na ordem do mais antigo ao mais recente. O horário usa o fuso da empresa, e os detalhes apresentam os serviços e valores registrados na reserva. A consulta de um cliente de outra empresa retorna indisponível.
+
+Os testes de navegador também percorrem as gravações de cadastro e a validação de duplicidade pela API NestJS real, com somente a persistência substituída por dados isolados. Esses testes não acessam MySQL. A execução das migrações e da suíte com MySQL real permanece pendente.
