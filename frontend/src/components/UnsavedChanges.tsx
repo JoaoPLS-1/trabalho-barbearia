@@ -3,7 +3,11 @@ import { useBeforeUnload, useBlocker } from 'react-router-dom';
 import { Dialog } from './Dialog';
 
 /** A referência permite navegar após sucesso sem aguardar outro render. */
-export function useUnsavedChanges(dirty: boolean, saving: boolean) {
+export function useUnsavedChanges(
+  dirty: boolean,
+  saving: boolean,
+  options: { busyTitle?: string; busyMessage?: string } = {},
+) {
   const allowLeave = useRef(false);
   const blocker = useBlocker(() => !allowLeave.current && (dirty || saving));
   useBeforeUnload(
@@ -23,13 +27,18 @@ export function useUnsavedChanges(dirty: boolean, saving: boolean) {
   const confirmation =
     blocker.state === 'blocked' ? (
       <Dialog
-        title={saving ? 'Salvando cadastro' : 'Descartar alterações?'}
+        title={
+          saving
+            ? (options.busyTitle ?? 'Salvando cadastro')
+            : 'Descartar alterações?'
+        }
         onClose={() => blocker.reset()}
       >
         <div className="form-body">
           <p>
             {saving
-              ? 'Aguarde a resposta antes de sair desta tela.'
+              ? (options.busyMessage ??
+                'Aguarde a resposta antes de sair desta tela.')
               : 'Você tem alterações não salvas. Deseja sair e descartá-las?'}
           </p>
           <div className="form-actions">

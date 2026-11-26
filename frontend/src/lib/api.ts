@@ -16,6 +16,7 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   timeoutMs?: number;
+  idempotencyKey?: string;
 }
 
 const base = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000').replace(
@@ -42,6 +43,8 @@ export async function api<T>(
       headers.set('x-empresa-id', String(options.empresaId));
     if (options.body !== undefined)
       headers.set('Content-Type', 'application/json');
+    if (options.idempotencyKey)
+      headers.set('Idempotency-Key', options.idempotencyKey);
     const response = await fetch(base + path, {
       method: options.method ?? 'GET',
       headers,

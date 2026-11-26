@@ -8,6 +8,7 @@ import { Dashboard } from '../features/dashboard/Dashboard';
 import { CadastroList } from '../features/cadastros/CadastroList';
 import { CadastroForm } from '../features/cadastros/CadastroForm';
 import { History } from '../features/historico/History';
+import { NewBooking } from '../features/agendamentos/NewBooking';
 import { Shell } from './Shell';
 import { StatePanel } from '../components/StatePanel';
 
@@ -105,7 +106,7 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
                 <Route path="/clientes/:id/historico" element={<History />} />
                 <Route path="/agendamentos/historico" element={<History />} />
                 <Route path="/agendamentos" element={<History agenda />} />
-                <Route path="/agendamentos/novo" element={<PendingArea title="Novo agendamento" />} />
+                <Route path="/agendamentos/novo" element={<NewBooking />} />
                 <Route
                   path="*"
                   element={<PendingArea title="Página não encontrada" />}
