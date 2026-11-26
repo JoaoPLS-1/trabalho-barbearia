@@ -121,7 +121,12 @@ function matches(item, where = {}) {
     'profissionalId',
     'status',
     'ativo',
+    'chaveOperacao',
   ]) {
+    if (where[field]?.in) {
+      if (!where[field].in.includes(item[field])) return false;
+      continue;
+    }
     if (where[field] !== undefined && where[field] !== item[field])
       return false;
   }
@@ -157,6 +162,35 @@ const prisma = {
       registros.filter((item) => matches(item, where)).length,
     findFirst: async ({ where }) =>
       registros.find((item) => matches(item, where)) ?? null,
+    findUnique: async ({ where }) =>
+      registros.find((item) =>
+        matches(item, where.empresaId_chaveOperacao ?? where),
+      ) ?? null,
+    create: async ({ data }) => {
+      const item = {
+        ...data,
+        id: nextId++,
+        criadoEm: new Date(),
+        status: 'AGENDADO',
+        cliente: clientes.find(
+          (c) => c.id === data.clienteId && c.empresaId === data.empresaId,
+        ),
+        profissional: profissionais.find(
+          (p) => p.id === data.profissionalId && p.empresaId === data.empresaId,
+        ),
+        servicos: data.servicos.create.map((service) => ({
+          ...service,
+          precoCobrado: new Prisma.Decimal(service.precoCobrado),
+        })),
+      };
+      registros.push(item);
+      return item;
+    },
+    updateMany: async ({ where, data }) => {
+      const items = registros.filter((item) => matches(item, where));
+      items.forEach((item) => Object.assign(item, data));
+      return { count: items.length };
+    },
   },
 };
 

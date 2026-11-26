@@ -70,11 +70,6 @@ function PendingArea({ title }: { title: string }) {
     </>
   );
 }
-const areas = [
-  ['/agendamentos', 'Agenda'],
-  ['/agendamentos/novo', 'Novo agendamento'],
-];
-
 export function App({ queryClient }: { queryClient?: QueryClient }) {
   const [client] = useState(() => queryClient ?? createQueryClient());
   return (
@@ -109,13 +104,8 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
                 )}
                 <Route path="/clientes/:id/historico" element={<History />} />
                 <Route path="/agendamentos/historico" element={<History />} />
-                {areas.map(([path, title]) => (
-                  <Route
-                    key={path}
-                    path={path}
-                    element={<PendingArea title={title} />}
-                  />
-                ))}
+                <Route path="/agendamentos" element={<History agenda />} />
+                <Route path="/agendamentos/novo" element={<PendingArea title="Novo agendamento" />} />
                 <Route
                   path="*"
                   element={<PendingArea title="Página não encontrada" />}

@@ -3,10 +3,13 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarDays } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
-import { date, money, time } from '../../lib/format';
+import { date, money, time, today } from '../../lib/format';
 import type { Agendamento, Page } from '../../lib/types';
 import type { Cadastro } from '../cadastros/config';
 import { useActiveCompany } from '../../app/company-context';
+import { AgendaAvailability } from '../agendamentos/AgendaAvailability';
+import { allPages } from '../agendamentos/catalog';
+import type { Profissional } from '../../lib/types';
 import { StatePanel } from '../../components/StatePanel';
 import { BookingDetails } from '../dashboard/BookingDetails';
 
@@ -16,14 +19,21 @@ const labels = {
   CANCELADO: 'Cancelado',
   FALTOU: 'Faltou',
 };
-export function History() {
+export function History({ agenda = false }: { agenda?: boolean }) {
   const company = useActiveCompany();
   const { id } = useParams();
   const validId =
     !id || (/^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id)));
   const [params, setParams] = useSearchParams();
   const status = params.get('status') ?? '';
-  const day = params.get('data') ?? '';
+  const day = params.get('data') ?? (agenda ? today(company.fusoHorario) : '');
+  const professional = params.get('profissionalId') ?? '';
+  const professionals = useQuery({
+    queryKey: ['empresa', company.id, 'agenda-profissionais'],
+    queryFn: ({ signal }) =>
+      allPages<Profissional>('/profissionais', company.id, signal),
+    enabled: agenda,
+  });
   const page = Math.max(
     1,
     Math.min(1000000, Math.trunc(Number(params.get('page')) || 1)),
@@ -42,6 +52,7 @@ export function History() {
   if (id) queryParams.set('clienteId', id);
   if (status) queryParams.set('status', status);
   if (day) queryParams.set('data', day);
+  if (agenda && professional) queryParams.set('profissionalId', professional);
   const query = useQuery({
     queryKey: ['empresa', company.id, 'historico', queryParams.toString()],
     queryFn: ({ signal }) =>
@@ -66,7 +77,13 @@ export function History() {
       <header className="page-heading">
         <div>
           <span className="eyebrow">ATENDIMENTOS · {company.nome}</span>
-          <h1>{id ? 'Histórico do cliente' : 'Histórico de atendimentos'}</h1>
+          <h1>
+            {agenda
+              ? 'Agenda'
+              : id
+                ? 'Histórico do cliente'
+                : 'Histórico de atendimentos'}
+          </h1>
           <p>
             {customer.data?.nome ??
               'Consulte reservas, serviços contratados e situações de atendimento.'}
@@ -77,9 +94,50 @@ export function History() {
             Voltar aos clientes
           </Link>
         )}
+        {agenda && (
+          <Link
+            className="button"
+            to={
+              '/agendamentos/novo?' +
+              new URLSearchParams({
+                data: day,
+                ...(professional ? { profissionalId: professional } : {}),
+              })
+            }
+          >
+            Novo agendamento
+          </Link>
+        )}
       </header>
       <section className="appointments-panel">
         <div className="catalog-filters">
+          {agenda && (
+            <label>
+              Profissional da agenda
+              <select
+                value={professional}
+                onChange={(event) =>
+                  filter('profissionalId', event.target.value)
+                }
+              >
+                <option value="">Todos os profissionais</option>
+                {professionals.data?.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nome}
+                    {item.ativo ? '' : ' (inativo)'}
+                  </option>
+                ))}
+              </select>
+              {professionals.isError && (
+                <button
+                  className="text-button"
+                  onClick={() => void professionals.refetch()}
+                >
+                  Recarregar profissionais
+                </button>
+              )}
+            </label>
+          )}
           <label>
             Situação do atendimento
             <select
@@ -101,7 +159,13 @@ export function History() {
               value={day}
               min="1000-01-01"
               max="9999-12-31"
-              onChange={(event) => filter('data', event.target.value)}
+              onChange={(event) =>
+                filter(
+                  'data',
+                  event.target.value ||
+                    (agenda ? today(company.fusoHorario) : ''),
+                )
+              }
             />
           </label>
           {(status || day) && (
@@ -241,6 +305,7 @@ export function History() {
           </>
         )}
       </section>
+      {agenda && <AgendaAvailability day={day} professional={professional} />}
       {details !== null && (
         <BookingDetails id={details} onClose={() => setDetails(null)} />
       )}
