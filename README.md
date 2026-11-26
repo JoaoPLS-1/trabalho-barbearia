@@ -156,7 +156,7 @@ A primeira entrada exige escolher uma empresa ativa. O sistema guarda somente o 
 
 O dashboard apresenta indicadores, pendências vencidas e futuras, filtros por data e profissional, paginação e detalhes dos serviços contratados. Os dados são atualizados a cada 30 segundos e podem ser atualizados manualmente. Erros de leitura não apagam os filtros; dados antigos ainda visíveis são identificados como última consulta. Empresa inativa bloqueia a lista e oferece outra seleção.
 
-O menu lateral oferece os submenus de clientes, profissionais, serviços e agendamentos. Os cadastros web permitem buscar, paginar, cadastrar e editar dados da empresa selecionada. Profissionais e serviços podem ser filtrados por situação e desativados com confirmação, preservando reservas e histórico. A agenda e o formulário de nova reserva serão implementados na parte 7; o painel ainda permite somente consultar detalhes, sem finalizar atendimentos pela interface.
+O menu lateral oferece os submenus de clientes, profissionais, serviços e agendamentos. Os cadastros web permitem buscar, paginar, cadastrar e editar dados da empresa selecionada. Profissionais e serviços podem ser filtrados por situação e desativados com confirmação, preservando reservas e histórico. A agenda permite consultar reservas e horários livres. A nova reserva oferece cadastro rápido de cliente, revisão e confirmação. Os detalhes permitem concluir, cancelar e marcar falta, com confirmação e atualização das pendências.
 
 ```bash
 npm run build:web
@@ -215,3 +215,16 @@ Formulários com alterações pedem confirmação antes de cancelar, voltar, nav
 O histórico pode ser aberto pela lista de clientes ou pelo submenu de agendamentos. Ele inclui todas as situações, com filtros por data e situação e paginação, na ordem do mais antigo ao mais recente. O horário usa o fuso da empresa, e os detalhes apresentam os serviços e valores registrados na reserva. A consulta de um cliente de outra empresa retorna indisponível.
 
 Os testes de navegador também percorrem as gravações de cadastro e a validação de duplicidade pela API NestJS real, com somente a persistência substituída por dados isolados. Esses testes não acessam MySQL. A execução das migrações e da suíte com MySQL real permanece pendente.
+
+
+## Reservas e finalização pela interface
+
+A agenda abre no dia atual da empresa e permite filtrar data, profissional (inclusive inativos para consulta) e situação. Na seção de horários livres, selecionar até 20 serviços ativos e um profissional. Os horários vêm da API e consideram duração, expediente, fuso e reservas existentes. Um clique no horário abre a nova reserva com a seleção preenchida; a disponibilidade é consultada novamente.
+
+No novo agendamento, buscar e selecionar um cliente existente ou cadastrar um cliente sem sair da tela. Telefone duplicado mantém os dados e busca o cadastro existente. Serviços e profissionais disponíveis para novas reservas são somente os ativos. O resumo mostra uma estimativa; os valores e serviços da confirmação são os devolvidos pela API. Conflito de horário preserva cliente e serviços, atualiza a disponibilidade e exige outra escolha.
+
+Cada pedido de reserva usa uma chave UUID enviada em Idempotency-Key. Antes do envio, a chave e o corpo imutável são guardados em sessionStorage por empresa, sem nome ou telefone. Enquanto uma confirmação estiver incerta, o formulário bloqueia alterações e troca de contexto, oferecendo consulta do resultado. Se a consulta ainda retornar 404, a recepção pode repetir explicitamente o mesmo pedido com a mesma chave. Não há repetição automática de gravações. Após recarregar a mesma aba, abrir Novo agendamento na empresa original para recuperar a consulta pendente. Fechar a sessão do navegador ou limpar seu armazenamento elimina essa recuperação local; o atendimento eventualmente gravado continua consultável na agenda.
+
+Nos detalhes do atendimento, concluir ou marcar falta só fica disponível a partir do início previsto. Cancelar pode ocorrer antes e mantém o histórico. Todas as ações exigem confirmação, e a API revalida o estado. Resposta incerta de finalização exige consultar a situação antes de repetir a mesma ação; as demais ações ficam bloqueadas até resolver a consulta. Uma atualização confirmada invalida as consultas da empresa para atualizar painel, agenda e histórico.
+
+Os testes de navegador cobrem a reserva e o cancelamento contra NestJS com persistência isolada, conflitos controlados, perda de resposta antes e depois da gravação, recuperação após recarregar, chave e corpo reutilizados, cadastro rápido, conclusão, falta e tela de celular. Eles não comprovam transações MySQL: migrações e testes com banco real seguem pendentes conforme combinado.

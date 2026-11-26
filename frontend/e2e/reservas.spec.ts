@@ -48,7 +48,6 @@ test('agenda: filtra dia e profissional e leva o contexto para a nova reserva', 
     page.getByRole('combobox', { name: 'Profissional', exact: true }),
   ).toHaveValue('12');
 });
-
 test('reserva: cadastro rápido e confirmação real, com preço, duração e header de operação', async ({
   page,
 }) => {
@@ -89,7 +88,116 @@ test('reserva: cadastro rápido e confirmação real, com preço, duração e he
     fullPage: true,
   });
 });
-
+test('confirmação incerta: gravação chega à API, resposta se perde e consulta recupera após reload', async ({
+  page,
+}) => {
+  let posts = 0;
+  await prepare(page, '2040-01-10');
+  await page.route('http://localhost:3000/agendamentos', async (route) => {
+    if (route.request().method() !== 'POST')
+      return route.continue({
+        url: route
+          .request()
+          .url()
+          .replace('http://localhost:3000', 'http://127.0.0.1:43117'),
+      });
+    posts++;
+    await route.fetch({ url: 'http://127.0.0.1:43117/agendamentos' });
+    await route.abort('failed');
+  });
+  await page.getByRole('button', { name: 'Revisar reserva' }).click();
+  await page.getByRole('button', { name: 'Confirmar agendamento' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Conferir confirmação da reserva' }),
+  ).toBeVisible();
+  const saved = await page.evaluate(() =>
+    sessionStorage.getItem('barbearia.reserva.2'),
+  );
+  expect(saved).not.toBeNull();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.reload();
+  await page.getByRole('button', { name: 'Consultar resultado' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Reserva confirmada' }),
+  ).toBeVisible();
+  expect(posts).toBe(1);
+});
+test('confirmação incerta sem gravação: consulta 404 e repetição usa exatamente a mesma chave e corpo', async ({
+  page,
+}) => {
+  const attempts: Array<{ key: string; body: string | null }> = [];
+  await prepare(page, '2040-01-11');
+  await page.route('http://localhost:3000/agendamentos', async (route) => {
+    if (route.request().method() !== 'POST')
+      return route.continue({
+        url: route
+          .request()
+          .url()
+          .replace('http://localhost:3000', 'http://127.0.0.1:43117'),
+      });
+    attempts.push({
+      key: route.request().headers()['idempotency-key'],
+      body: route.request().postData(),
+    });
+    if (attempts.length === 1) await route.abort('failed');
+    else await route.continue({ url: 'http://127.0.0.1:43117/agendamentos' });
+  });
+  await page.getByRole('button', { name: 'Revisar reserva' }).click();
+  await page.getByRole('button', { name: 'Confirmar agendamento' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Conferir confirmação da reserva' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Consultar resultado' }).click();
+  await page.getByRole('button', { name: 'Repetir o mesmo pedido' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Reserva confirmada' }),
+  ).toBeVisible();
+  expect(attempts).toHaveLength(2);
+  expect(attempts[0]).toEqual(attempts[1]);
+});
+test('conflito: preserva cliente e serviços, atualiza horários e exige outra seleção', async ({
+  page,
+}) => {
+  await prepare(page, '2040-01-12');
+  await page.route('http://localhost:3000/agendamentos', async (route) => {
+    if (route.request().method() === 'OPTIONS')
+      return route.continue({ url: 'http://127.0.0.1:43117/agendamentos' });
+    await route.fulfill({
+      status: 409,
+      headers: { 'access-control-allow-origin': 'http://127.0.0.1:5173' },
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 'HORARIO_OCUPADO',
+        message: 'Este horário acabou de ser ocupado.',
+      }),
+    });
+  });
+  await page.getByRole('button', { name: 'Revisar reserva' }).click();
+  await page.getByRole('button', { name: 'Confirmar agendamento' }).click();
+  await expect(page.getByRole('alert')).toHaveText(
+    'Este horário acabou de ser ocupado.',
+  );
+  await expect(
+    page.getByText('Cliente selecionado: Cliente HTTP Vila'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('checkbox', { name: /Corte HTTP/ }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole('button', { name: 'Revisar reserva' }),
+  ).toBeDisabled();
+  expect(
+    await page.evaluate(() => sessionStorage.getItem('barbearia.reserva.2')),
+  ).toBeNull();
+  await page
+    .getByRole('group', { name: 'Horários disponíveis' })
+    .getByRole('button')
+    .nth(1)
+    .click();
+  await expect(
+    page.getByRole('button', { name: 'Revisar reserva' }),
+  ).toBeEnabled();
+});
 test('celular: consulta de horários, formulário e resumo sem rolagem horizontal', async ({
   page,
 }) => {
@@ -105,7 +213,6 @@ test('celular: consulta de horários, formulário e resumo sem rolagem horizonta
     fullPage: true,
   });
 });
-
 test('cancelamento real: confirmação altera a situação e atualiza os detalhes', async ({
   page,
 }) => {
@@ -127,7 +234,6 @@ test('cancelamento real: confirmação altera a situação e atualiza os detalhe
     page.getByRole('button', { name: 'Cancelar agendamento', exact: true }),
   ).toHaveCount(0);
 });
-
 
 test('agenda: mostra dia sem horários e inicia reserva pelo horário livre escolhido', async ({
   page,
@@ -155,7 +261,6 @@ test('agenda: mostra dia sem horários e inicia reserva pelo horário livre esco
       .first(),
   ).toHaveAttribute('aria-pressed', 'true');
 });
-
 test('cadastro rápido: telefone duplicado preserva os campos e busca o cadastro existente', async ({
   page,
 }) => {
@@ -175,4 +280,64 @@ test('cadastro rápido: telefone duplicado preserva os campos e busca o cadastro
   await expect(
     page.getByText('Cliente selecionado: Cliente HTTP Vila'),
   ).toBeVisible();
+});
+
+test('confirmação divergente: consulta de outro pedido não confirma a reserva local nem prende o formulário', async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      'barbearia.reserva.2',
+      JSON.stringify({
+        key: '550e8400-e29b-41d4-a716-446655440000',
+        empresaId: 2,
+        body: {
+          clienteId: 22,
+          profissionalId: 12,
+          servicoIds: [32],
+          inicio: '2040-01-16T12:00:00.000Z',
+        },
+      }),
+    ),
+  );
+  await page.reload();
+  await page.route(
+    'http://localhost:3000/agendamentos/operacoes/**',
+    async (route) => {
+      if (route.request().method() === 'OPTIONS')
+        return route.continue({
+          url: route
+            .request()
+            .url()
+            .replace('http://localhost:3000', 'http://127.0.0.1:43117'),
+        });
+      const response = await page.request.get(
+        'http://127.0.0.1:43117/agendamentos/42',
+        { headers: { 'x-empresa-id': '2' } },
+      );
+      const item = await response.json();
+      await route.fulfill({
+        headers: { 'access-control-allow-origin': 'http://127.0.0.1:5173' },
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...item,
+          cliente: { ...item.cliente, id: 999 },
+        }),
+      });
+    },
+  );
+  await page.getByRole('button', { name: 'Consultar resultado' }).click();
+  await expect(page.getByRole('alert')).toContainText(
+    'A chave pertence a outro pedido.',
+  );
+  await expect(
+    page.getByRole('heading', { name: 'Reserva confirmada' }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Consultar resultado' }),
+  ).toHaveCount(0);
+  expect(
+    await page.evaluate(() => sessionStorage.getItem('barbearia.reserva.2')),
+  ).toBeNull();
 });

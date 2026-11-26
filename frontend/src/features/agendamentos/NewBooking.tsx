@@ -141,9 +141,7 @@ export function NewBooking() {
         !(error instanceof ApiError) ||
         error.status === 0 ||
         error.status >= 500 ||
-        ['OPERACAO_CONCORRENTE', 'OPERACAO_DIVERGENTE'].includes(
-          error.code ?? '',
-        );
+        error.code === 'OPERACAO_CONCORRENTE';
       if (!uncertain) {
         clearOperation(company.id);
         setOperation(null);
@@ -167,10 +165,14 @@ export function NewBooking() {
       }),
     onSuccess: (item, op) => {
       if (matchesOperation(item, op)) finish(item);
-      else
+      else {
+        clearOperation(company.id);
+        setOperation(null);
+        setNotFound(false);
         setMessage(
-          'O resultado encontrado não corresponde ao pedido salvo. Confira o atendimento na agenda antes de continuar.',
+          'A chave pertence a outro pedido. O pedido local não foi confirmado; revise os dados antes de criar uma nova reserva.',
         );
+      }
     },
     onError: (error) => {
       setNotFound(error instanceof ApiError && error.status === 404);
