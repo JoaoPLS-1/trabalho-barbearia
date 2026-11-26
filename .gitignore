@@ -62,3 +62,10 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Planejamento mantido apenas no ambiente local
 /docs/
+
+# Saidas e relatorios do front-end
+/frontend/dist/
+/frontend/node_modules/
+/frontend/coverage/
+/frontend/test-results/
+/frontend/playwright-report/

@@ -22,7 +22,13 @@
     "db:generate": "prisma generate --config prisma7.config.ts",
     "db:migrate": "prisma migrate deploy --config prisma7.config.ts",
     "test:integration": "node scripts/test-integration.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:web": "npm run dev --workspace=frontend",
+    "build:web": "npm run build --workspace=frontend",
+    "test:web": "npm run test --workspace=frontend",
+    "test:web:e2e": "npm run db:generate && npm run build && npm run test:e2e --workspace=frontend",
+    "typecheck:web": "npm run typecheck --workspace=frontend",
+    "lint:web": "oxlint frontend/src frontend/test frontend/e2e"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",
@@ -66,6 +72,10 @@
   "overrides": {
     "@prisma/config": {
       "effect": "3.22.1"
-    }
-  }
+    },
+    "happy-dom": "21.0.4"
+  },
+  "workspaces": [
+    "frontend"
+  ]
 }
