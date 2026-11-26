@@ -1,4 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { BookingActions } from '../agendamentos/BookingActions';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Phone, UserRound } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import { date, money, phone, time } from '../../lib/format';
@@ -22,6 +24,8 @@ export function BookingDetails({
   onClose: () => void;
 }) {
   const company = useActiveCompany();
+  const cache = useQueryClient();
+  const [locked, setLocked] = useState(false);
   const query = useQuery({
     queryKey: ['empresa', company.id, 'agendamento', id],
     queryFn: ({ signal }) =>
@@ -33,7 +37,7 @@ export function BookingDetails({
   });
   const item = query.data;
   return (
-    <Dialog title="Detalhes do atendimento" onClose={onClose}>
+    <Dialog title="Detalhes do atendimento" onClose={onClose} locked={locked}>
       {query.isPending ? (
         <StatePanel kind="loading" title="Carregando atendimento" />
       ) : query.isError ? (
@@ -97,6 +101,16 @@ export function BookingDetails({
               <span>Valor do atendimento</span>
               <strong>{money(item.total)}</strong>
             </div>
+            <BookingActions
+              item={item}
+              onLocked={setLocked}
+              onUpdated={(result) =>
+                cache.setQueryData(
+                  ['empresa', company.id, 'agendamento', id],
+                  result,
+                )
+              }
+            />
             {item.status === 'AGENDADO' && (
               <p className="details-note">
                 Este atendimento ainda está pendente de finalização.

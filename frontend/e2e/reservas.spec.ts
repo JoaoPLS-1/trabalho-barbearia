@@ -106,6 +106,29 @@ test('celular: consulta de horários, formulário e resumo sem rolagem horizonta
   });
 });
 
+test('cancelamento real: confirmação altera a situação e atualiza os detalhes', async ({
+  page,
+}) => {
+  await start(page, '/clientes/22/historico');
+  await page
+    .getByRole('button', { name: /Ver detalhes/ })
+    .first()
+    .click();
+  await page
+    .getByRole('button', { name: 'Cancelar agendamento', exact: true })
+    .click();
+  const response = page.waitForResponse(
+    (r) => r.url().endsWith('/status') && r.request().method() === 'PATCH',
+  );
+  await page.getByRole('button', { name: 'Confirmar ação' }).click();
+  expect((await response).status()).toBe(200);
+  await expect(page.getByRole('dialog')).toContainText('Cancelado');
+  await expect(
+    page.getByRole('button', { name: 'Cancelar agendamento', exact: true }),
+  ).toHaveCount(0);
+});
+
+
 test('agenda: mostra dia sem horários e inicia reserva pelo horário livre escolhido', async ({
   page,
 }) => {
