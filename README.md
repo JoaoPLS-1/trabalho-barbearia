@@ -1,14 +1,14 @@
 # Sistema de Barbearia
 
-Sistema para a recepção operar clientes, profissionais, serviços e agendamentos de várias empresas, sem login. A entrada permitirá escolher a empresa e acessar um painel de atendimentos pendentes.
+Sistema para a recepção operar clientes, profissionais, serviços e agendamentos de várias empresas, sem login. A entrada exige escolher a empresa e abre um painel de atendimentos pendentes.
 
 ## Estado do desenvolvimento
 
-A API da aula está em preparação para integração com o front-end. Os cadastros possuem busca paginada, telefone normalizado, preço decimal e desativação com histórico preservado. A agenda da API oferece disponibilidade, reserva com chave de operação, finalização e painel de pendências. O front-end, a agenda completa e os dados de demonstração serão entregues nas próximas partes.
+A API da aula está em preparação para integração com o front-end. Os cadastros possuem busca paginada, telefone normalizado, preço decimal e desativação com histórico preservado. A agenda da API oferece disponibilidade, reserva com chave de operação, finalização e painel de pendências. A recepção web já oferece seleção e troca de empresa, dashboard e detalhes. Os cadastros web, o formulário de agendamento e os dados de demonstração serão entregues nas próximas partes.
 
 ## Arquitetura e decisões
 
-- API NestJS e TypeScript com Prisma e MySQL; front-end planejado em React, TypeScript e Vite.
+- API NestJS e TypeScript com Prisma e MySQL; front-end em React, TypeScript e Vite.
 - Empresa corrente enviada pelo header x-empresa-id. A API valida o contexto e restringe as operações à empresa.
 - Profissionais e serviços usam desativação para preservar histórico.
 - A API copia os dados contratados e implementa a confirmação transacional de reservas; a execução com MySQL real continua pendente.
@@ -137,6 +137,57 @@ O painel inclui todos os AGENDADOS, inclusive pendências de dias anteriores. At
 A migração 20261126000000_expediente_e_operacoes também está preparada e não foi aplicada. Ela preenche o expediente das empresas existentes, cria o padrão JSON no MySQL e adiciona chave/hash opcionais para preservar reservas legadas sem inventar chaves de operação. As novas reservas exigem a chave pela API.
 
 A suíte de integração inclui testes de duas reservas simultâneas, repetição simultânea da mesma chave, rollback com itens contratados, finalizações divergentes e alterações concorrentes de preço ou situação. Esses testes devem rodar em banco exclusivo antes de considerar a concorrência validada. As suítes sem banco testam regras e HTTP, sem simular garantias reais de locks e rollback.
+
+## Executar o front-end
+
+O front fica em frontend/ e usa React, TypeScript, Vite e TanStack Query. O npm workspace mantém um único package-lock.json na raiz. Instalar tudo com npm ci na raiz, usando a versão de Node indicada em .nvmrc.
+
+Com a API configurada e disponível na porta 3000, abrir outro terminal na raiz e executar:
+
+```bash
+npm run dev:web
+```
+
+Abrir http://127.0.0.1:5173. A URL da API é http://localhost:3000 por padrão. Para mudar, copiar frontend/.env.example para frontend/.env.local e ajustar VITE_API_URL. Não colocar senhas ou tokens em variáveis VITE_, pois elas são públicas no navegador.
+
+O front acessa a API diretamente, sem proxy de desenvolvimento. Se mudar a origem do front, ajustar CORS_ORIGINS no ambiente da API. VITE_API_URL deve apontar para a raiz HTTP da API, sem barra final.
+
+A primeira entrada exige escolher uma empresa ativa. O sistema guarda somente o id selecionado em sessionStorage e o valida na API ao abrir a recepção. Alterar empresa cancela consultas em andamento, limpa o cache e reinicia os filtros. Não há escolha automática da primeira empresa da lista.
+
+O dashboard apresenta indicadores, pendências vencidas e futuras, filtros por data e profissional, paginação e detalhes dos serviços contratados. Os dados são atualizados a cada 30 segundos e podem ser atualizados manualmente. Erros de leitura não apagam os filtros; dados antigos ainda visíveis são identificados como última consulta. Empresa inativa bloqueia a lista e oferece outra seleção.
+
+O menu lateral está preparado com os submenus exigidos. Os cadastros web e o formulário de agendamento ainda mostram uma área em preparação; serão implementados nas partes 6 e 7. Nesta parte, o painel permite consultar detalhes, sem ações de gravação ou finalização na interface.
+
+```bash
+npm run build:web
+npm run typecheck:web
+npm run lint:web
+npm run test:web
+```
+
+O build fica em frontend/dist. A compilação e os testes da API continuam separados; npm run build, npm run typecheck, npm test e npm run test:e2e verificam o back-end.
+
+## Testes de navegador
+
+Os testes Playwright verificam desktop, celular, teclado, filtros, paginação, falhas de leitura e resposta atrasada após troca de empresa. Um dos fluxos abre o front contra a API NestJS real em outra porta, substituindo somente Prisma por dados isolados de teste. Os demais cenários controlam as respostas HTTP no navegador. Nenhuma dessas verificações comprova SQL, locks ou migrações MySQL.
+
+Por padrão, instalar o navegador de teste uma vez:
+
+```bash
+npx playwright install chromium
+npm run test:web:e2e
+```
+
+No Windows, é possível aproveitar o Chrome já instalado, sem baixar outro navegador. Em PowerShell:
+
+```powershell
+$env:PLAYWRIGHT_CHANNEL = "chrome"
+npm run test:web:e2e
+```
+
+O comando gera o cliente Prisma, compila a API e inicia servidores de teste nas portas 5173 e 43117, encerrados pelo Playwright ao terminar. A API de teste só aceita NODE_ENV=test e não conecta ao MySQL. Não iniciar outro serviço nessas portas durante a verificação.
+
+Os dados de teste ficam somente em frontend/test e frontend/e2e; não há modo de demonstração com respostas fictícias no front de produção. Para usar o produto com dados persistidos, executar a API normal com seu MySQL configurado.
 
 ## Colaboração
 

@@ -4,6 +4,7 @@ import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import { createQueryClient } from '../lib/query';
 import { CompanyGate, CompanyProvider } from './company-context';
 import { CompanyChoice } from '../features/empresas/CompanyChoice';
+import { Dashboard } from '../features/dashboard/Dashboard';
 import { Shell } from './Shell';
 import { StatePanel } from '../components/StatePanel';
 
@@ -91,7 +92,7 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
             <Route path="/" element={<CompanyChoice />} />
             <Route element={<CompanyGate />}>
               <Route element={<Shell />}>
-                <Route path="/painel" element={<PendingArea title="Painel da recepção" />} />
+                <Route path="/painel" element={<Dashboard />} />
                 {areas.map(([path, title]) => (
                   <Route
                     key={path}

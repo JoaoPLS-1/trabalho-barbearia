@@ -63,6 +63,26 @@ describe('Entrada e contexto de empresa', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('abre a empresa escolhida, envia o contexto e mostra os indicadores da API', async () => {
+    const fetchMock = mockApi();
+    mount();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Entrar na empresa Barbearia Centro',
+      }),
+    );
+    await screen.findByRole('heading', { name: 'Painel da recepção' });
+    await screen.findByText('Rafael Oliveira');
+    expect(sessionStorage.getItem('barbearia.empresaId')).toBe('1');
+    expect(
+      screen.getByLabelText('Indicadores de atendimento'),
+    ).toHaveTextContent('4');
+    const call = fetchMock.mock.calls.find(([input]) =>
+      String(input).includes('/agendamentos/pendentes'),
+    );
+    expect(new Headers(call?.[1]?.headers).get('x-empresa-id')).toBe('1');
+  });
+
   it('permite pesquisar uma empresa sem alterar a seleção', async () => {
     mockApi();
     mount();
@@ -93,7 +113,7 @@ describe('Entrada e contexto de empresa', () => {
         name: 'Entrar na empresa Barbearia Centro',
       }),
     );
-    await screen.findByRole('heading', { name: 'Painel da recepção' });
+    await screen.findByText('Rafael Oliveira');
     await userEvent.click(
       screen.getByRole('button', { name: 'Alterar empresa' }),
     );
@@ -129,4 +149,26 @@ describe('Entrada e contexto de empresa', () => {
     expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
   });
 
+  it('permite recuperar o painel após falha de leitura sem perder o filtro', async () => {
+    const fetchMock = mockApi();
+    mount();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Entrar na empresa Barbearia Centro',
+      }),
+    );
+    await screen.findByText('Rafael Oliveira');
+    const input = screen.getByLabelText('Filtrar por data');
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url, options) =>
+      String(url).includes('/agendamentos/pendentes')
+        ? Response.json({ message: 'Serviço indisponível' }, { status: 503 })
+        : original(url, options),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Hoje' }));
+    await screen.findByRole('heading', {
+      name: 'Não foi possível carregar os atendimentos',
+    });
+    expect(input).not.toHaveValue('');
+  });
 });
