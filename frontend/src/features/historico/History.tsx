@@ -1,5 +1,6 @@
+import { useFilterParams } from '../../lib/filter-params';
 import { useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarDays } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
@@ -24,7 +25,7 @@ export function History({ agenda = false }: { agenda?: boolean }) {
   const { id } = useParams();
   const validId =
     !id || (/^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id)));
-  const [params, setParams] = useSearchParams();
+  const [params, setParams] = useFilterParams();
   const status = params.get('status') ?? '';
   const day = params.get('data') ?? (agenda ? today(company.fusoHorario) : '');
   const professional = params.get('profissionalId') ?? '';

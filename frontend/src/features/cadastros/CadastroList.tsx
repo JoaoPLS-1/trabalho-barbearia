@@ -1,5 +1,6 @@
+import { useFilterParams } from '../../lib/filter-params';
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Search, Users, Scissors, UserRound } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
@@ -13,7 +14,7 @@ export function CadastroList({ kind }: { kind: CadastroKind }) {
   const company = useActiveCompany();
   const config = cadastros[kind];
   const location = useLocation();
-  const [params, setParams] = useSearchParams();
+  const [params, setParams] = useFilterParams();
   const search = params.get('busca') ?? '';
   const active = params.get('ativo') ?? '';
   const page = Math.max(

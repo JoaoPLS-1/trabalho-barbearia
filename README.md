@@ -204,7 +204,7 @@ Nome e email configurados no Git definem autoria; a conta autenticada para o pus
 
 ## Cadastros e histórico na recepção
 
-A busca dos cadastros é enviada ao confirmar Buscar ou pressionar Enter; os filtros e a página ficam na URL e podem ser retomados ao voltar pelo navegador. Clientes aceitam nome ou telefone na busca. A API valida telefone brasileiro com DDD e impede duplicidade dentro da mesma empresa. Mensagens de validação aparecem junto ao campo, sem apagar o formulário.
+A busca dos cadastros é enviada ao confirmar Buscar ou pressionar Enter; os filtros e a página ficam na URL e podem ser retomados ao voltar pelo navegador. Clientes aceitam nome ou telefone na busca. A API valida telefone brasileiro com DDD e impede duplicidade dentro da mesma empresa. Mensagens de validação aparecem junto ao campo, sem apagar o formulário. Atualizações dos filtros são sincronizadas para que limpar a situação e escolher uma data em sequência não restaure o filtro anterior.
 
 O preço de serviço pode ser digitado com vírgula ou ponto e até duas casas decimais; ele é enviado como texto com centavos, sem aritmética de ponto flutuante. A duração deve ser inteira, de 5 a 600 minutos. Os novos dados do catálogo não substituem nome, duração e preço já contratados nas reservas existentes.
 
@@ -250,7 +250,7 @@ A configuração usa o [seed explícito do Prisma 7](https://www.prisma.io/docs/
 
 ## Verificação automatizada e CI
 
-O workflow .github/workflows/ci.yml roda em pushes para main e parte/** e em pull requests. Ele instala pelo lockfile, gera Prisma, verifica tipagem, builds e lint da API/front/ferramentas, executa testes unitários e HTTP com persistência isolada e percorre os fluxos Playwright com Chromium. Em CI, um relatório HTML e as evidências disponíveis do navegador ficam como artefato por sete dias. O workflow ainda não foi executado no GitHub; sua validação remota ocorrerá após a publicação.
+O workflow .github/workflows/ci.yml roda em pushes para main e parte/** e em pull requests. Ele instala pelo lockfile, gera Prisma, verifica tipagem, builds e lint da API/front/ferramentas, executa testes unitários e HTTP com persistência isolada e percorre os fluxos Playwright com Chromium. Em CI, um relatório HTML e as evidências disponíveis do navegador ficam como artefato por sete dias. Os resultados remotos ficam disponíveis nas [execuções da CI](https://github.com/JoaoPLS-1/trabalho-barbearia/actions/workflows/ci.yml).
 
 A integração com MySQL foi validada localmente. Na CI, ela é um job manual: abrir Actions, selecionar Verificar aplicação e Run workflow na branch desejada, marcando mysql. Esse job cria MySQL 8.4 descartável, usa somente barbearia_test, aplica migrações, executa as suítes de integração e exercita o comando de seed duas vezes. Não utiliza credenciais pessoais nem o banco de desenvolvimento. As credenciais escritas no YAML são exclusivas do serviço temporário do job.
 
@@ -295,4 +295,4 @@ O primeiro seed inseriu 12 atendimentos. A repetição inseriu zero e reaproveit
 
 Há seis atendimentos AGENDADOS, dois CONCLUIDOS, dois CANCELADOS e dois FALTOU. Consultas pela API real confirmaram, por empresa, três clientes, três pendências (uma atrasada) e seis atendimentos no histórico. Consultar o cliente de uma empresa com o contexto da outra retornou 404. Ao final da suíte, o banco de testes ficou sem empresas e atendimentos criados pelos testes.
 
-As conexões locais estão em .env e .env.test.local, ignorados pelo Git. Credenciais não são incluídas no repositório. Os resultados de MySQL acima são locais; a execução remota do workflow permanece a verificar após a publicação.
+As conexões locais estão em .env e .env.test.local, ignorados pelo Git. Credenciais não são incluídas no repositório. Os resultados de MySQL acima são locais; o job de banco do GitHub é uma verificação independente, habilitada pela opção manual do workflow.
