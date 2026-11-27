@@ -244,9 +244,37 @@ Cadastros usam IDs reservados entre 10001 e 10104; os bancos ajustam sua sequên
 
 Alterações do usuário em catálogo, situação, expediente ou fuso são preservadas. Novos cenários incompatíveis com essas alterações ou com reservas existentes são omitidos e contados no resultado do comando. Um atendimento criado pelo seed e depois cancelado ou concluído não é reaberto em outra execução. O seed bloqueia execução com NODE_ENV=production e usa uma transação com a mesma ordem de coordenação por empresa.
 
-O plano das datas, vínculos, chaves e snapshots é testado sem banco. A execução do seed e sua validação com MySQL real passaram, incluindo a repetição sem duplicidade.
+O plano das datas, vínculos, chaves e snapshots é testado sem banco. Os testes de repetição, preservação de edições, colisão e rollback do seed em test/seed.integration-spec.ts passaram com MySQL real.
 
 A configuração usa o [seed explícito do Prisma 7](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/seeding).
+
+## Verificação automatizada e CI
+
+O workflow .github/workflows/ci.yml roda em pushes para main e parte/** e em pull requests. Ele instala pelo lockfile, gera Prisma, verifica tipagem, builds e lint da API/front/ferramentas, executa testes unitários e HTTP com persistência isolada e percorre os fluxos Playwright com Chromium. Em CI, um relatório HTML e as evidências disponíveis do navegador ficam como artefato por sete dias. O workflow ainda não foi executado no GitHub; sua validação remota ocorrerá após a publicação.
+
+A integração com MySQL foi validada localmente. Na CI, ela é um job manual: abrir Actions, selecionar Verificar aplicação e Run workflow na branch desejada, marcando mysql. Esse job cria MySQL 8.4 descartável, usa somente barbearia_test, aplica migrações, executa as suítes de integração e exercita o comando de seed duas vezes. Não utiliza credenciais pessoais nem o banco de desenvolvimento. As credenciais escritas no YAML são exclusivas do serviço temporário do job.
+
+O job manual usa os [serviços descartáveis do GitHub Actions](https://docs.github.com/en/actions/tutorials/use-containerized-services/use-docker-service-containers). DATABASE_TEST_URL continua exigindo banco terminado em _test, diferente de DATABASE_URL. Os testes removem somente dados que a própria suíte criou; a suíte de seed recusa um namespace de demonstração previamente ocupado em vez de apagá-lo.
+
+Para repetir localmente as verificações sem banco:
+
+```bash
+npm run db:generate
+npm run typecheck
+npm run build
+npm run lint
+npm run lint:tools
+npm test
+npm run test:e2e
+npm run build:web
+npm run lint:web
+npm run test:web
+npm run test:web:e2e
+```
+
+No Windows, configurar PLAYWRIGHT_CHANNEL=chrome para utilizar o navegador já instalado, conforme a seção Testes de navegador. npm run test:integration executa a suíte MySQL no banco exclusivo configurado em .env.test.local.
+
+Os novos testes de interface percorrem reserva, consulta, cancelamento e troca de empresa pela API NestJS com persistência isolada. Também verificam que uma disponibilidade atrasada não aparece na empresa seguinte e que uma reserva incerta impede trocar de contexto até consultar seu resultado. Essas verificações não validam SQL, migrações ou locks. Os novos cenários de integração com MySQL cobrem pedidos divergentes com a mesma chave, reservas adjacentes simultâneas e disputa do intervalo completo de uma reserva com vários serviços; esses cenários passaram na execução local com MySQL real.
 
 ## Verificação local com MySQL
 

@@ -12,7 +12,8 @@ export default defineConfig({
   timeout: 30000,
   fullyParallel: false,
   workers: 1,
-  reporter: 'list',
+  forbidOnly: !!process.env.CI,
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   outputDir: './test-results',
   use: {
     ...devices['Desktop Chrome'],
