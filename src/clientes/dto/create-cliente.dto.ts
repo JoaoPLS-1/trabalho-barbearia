@@ -1,12 +1,21 @@
-import { IsNotEmpty, IsString, Matches } from "class-validator";
+import { Transform } from 'class-transformer';
+import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
+import {
+  normalizarNome,
+  normalizarTelefone,
+} from '../../common/normalizacao.js';
 
 export class CreateClienteDto {
-    @IsString()
-    @IsNotEmpty()
-    nome: string;
+  @Transform(({ value }) => normalizarNome(value))
+  @IsString()
+  @IsNotEmpty({ message: 'Informe o nome do cliente.' })
+  @MaxLength(120)
+  nome: string;
 
-    @Matches(/^\d{10,11}$/, {
-        message: 'Telefone deve ter DDD + Número, só dígitos (10 ou 11)'
-    })
-    telefone: string;
+  @Transform(({ value }) => normalizarTelefone(value))
+  @IsString()
+  @Matches(/^\d{10,11}$/, {
+    message: 'Informe telefone com DDD e 10 ou 11 dígitos.',
+  })
+  telefone: string;
 }

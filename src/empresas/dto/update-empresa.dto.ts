@@ -1,9 +1,11 @@
 import { PartialType } from '@nestjs/mapped-types';
+import { IsBoolean, ValidateIf } from 'class-validator';
 import { CreateEmpresaDto } from './create-empresa.dto.js';
-import { IsBoolean, IsOptional } from 'class-validator';
 
-export class UpdateEmpresaDto extends PartialType(CreateEmpresaDto) {
-    @IsOptional()
-    @IsBoolean()
-    ativa?: boolean
+export class UpdateEmpresaDto extends PartialType(CreateEmpresaDto, {
+  skipNullProperties: false,
+}) {
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsBoolean()
+  ativa?: boolean;
 }

@@ -1,14 +1,13 @@
 {
   "name": "sistema-barbearia-rpv",
   "version": "0.0.1",
-  "description": "",
+  "description": "Sistema de recepcao para barbearias",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "build": "nest build",
-    "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -19,13 +18,26 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
+    "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
+    "db:generate": "prisma generate --config prisma7.config.ts",
+    "db:migrate": "prisma migrate deploy --config prisma7.config.ts",
+    "test:integration": "node scripts/test-integration.mjs",
+    "typecheck": "tsc --noEmit",
+    "dev:web": "npm run dev --workspace=frontend",
+    "build:web": "npm run build --workspace=frontend",
+    "test:web": "npm run test --workspace=frontend",
+    "test:web:e2e": "npm run db:generate && npm run build && npm run test:e2e --workspace=frontend",
+    "typecheck:web": "npm run typecheck --workspace=frontend",
+    "lint:web": "oxlint frontend/src frontend/test frontend/e2e",
+    "db:seed": "npm run db:generate && npm run build && prisma db seed --config prisma7.config.ts",
+    "lint:tools": "oxlint scripts/"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "^0.5.1",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^12.0.1",
-    "@nestjs/mapped-types": "*",
+    "@nestjs/mapped-types": "^12.0.1",
     "@nestjs/observe": "^0.1.8",
     "@nestjs/platform-express": "^12.0.1",
     "@prisma/adapter-mariadb": "^7.10.1",
@@ -37,9 +49,9 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",
-    "@nestjs/mau": "^0.2.6",
     "@nestjs/schematics": "^12.0.0",
     "@nestjs/testing": "^12.0.1",
+    "@swc/core": "^1.16.22",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",
@@ -51,7 +63,21 @@
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
     "typescript": "^6.0.2",
-    "vite-tsconfig-paths": "^5.1.4",
+    "unplugin-swc": "^2.0.0",
     "vitest": "^4.1.2"
-  }
+  },
+  "packageManager": "npm@11.21.1",
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0",
+    "npm": ">=10"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "effect": "3.22.1"
+    },
+    "happy-dom": "21.0.4"
+  },
+  "workspaces": [
+    "frontend"
+  ]
 }

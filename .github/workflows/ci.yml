@@ -1,0 +1,108 @@
+name: Verificar aplicação
+on:
+  push:
+    branches: [main, 'parte/**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      mysql:
+        description: Executar integração e seed em MySQL descartável
+        type: boolean
+        required: false
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    name: Builds, lint e testes sem banco
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Instalar dependências pelo lockfile
+        run: npm ci
+      - name: Gerar Prisma
+        run: npm run db:generate
+      - name: Tipagem e build da API
+        run: |
+          npm run typecheck
+          npm run build
+      - name: Lint da API e ferramentas
+        run: |
+          npm run lint
+          npm run lint:tools
+      - name: Testes unitários e HTTP isolados
+        run: |
+          npm test
+          npm run test:e2e
+      - name: Build, lint e testes do front
+        run: |
+          npm run build:web
+          npm run lint:web
+          npm run test:web
+      - name: Instalar Chromium do Playwright
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Fluxos completos no navegador
+        run: npm run test:e2e --workspace=frontend
+      - name: Guardar evidências do navegador
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: navegador
+          path: |
+            frontend/test-results/
+            frontend/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+  mysql:
+    name: MySQL real (execução manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.mysql
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root_descartavel
+          MYSQL_DATABASE: barbearia_test
+          MYSQL_USER: barbearia_ci
+          MYSQL_PASSWORD: ci_somente_testes
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    env:
+      NODE_ENV: test
+      DATABASE_URL: mysql://barbearia_ci:ci_somente_testes@127.0.0.1:3306/barbearia_dev
+      DATABASE_TEST_URL: mysql://barbearia_ci:ci_somente_testes@127.0.0.1:3306/barbearia_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - name: Migrações e integração no banco exclusivo
+        run: npm run test:integration
+      - name: Exercitar o comando de seed duas vezes no banco descartável
+        env:
+          DATABASE_URL: ${{ env.DATABASE_TEST_URL }}
+        run: |
+          npm run db:seed
+          npm run db:seed

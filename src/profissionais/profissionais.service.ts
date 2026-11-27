@@ -1,6 +1,13 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateProfissionaisDto } from './dto/create-profissional.dto.js';
 import { UpdateProfissionaisDto } from './dto/update-profissional.dto.js';
+import { withEmpresaLock } from '../common/empresa-transaction.js';
+import { CatalogQueryDto } from '../common/list-query.dto.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmpresasService } from '../empresas/empresas.service.js';
 
@@ -8,61 +15,62 @@ import { EmpresasService } from '../empresas/empresas.service.js';
 export class ProfissionaisService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly empresas: EmpresasService
-  ) { }
+    private readonly empresas: EmpresasService,
+  ) {}
 
   async create(empresaId: number, dto: CreateProfissionaisDto) {
     await this.empresas.validarEmpresaAtiva(empresaId);
-
-    return this.prisma.profissional.create({
-      data: { ...dto, empresaId }
-    })
+    return this.prisma.profissional.create({ data: { ...dto, empresaId } });
   }
 
-  async findAll(empresaId: number, ativos: boolean) {
+  async findAll(empresaId: number, query = new CatalogQueryDto()) {
     await this.empresas.validarEmpresaAtiva(empresaId);
-
-    return this.prisma.profissional.findMany({
-      where: { empresaId, ativo: ativos ? true : undefined },
-      orderBy: { nome: 'asc' }
-    })
+    const { page, pageSize, busca, ativo } = query;
+    const where: Prisma.ProfissionalWhereInput = {
+      empresaId,
+      ...(ativo !== undefined ? { ativo } : {}),
+      ...(busca ? { nome: { contains: busca } } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.profissional.findMany({
+        where,
+        orderBy: [{ nome: 'asc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.profissional.count({ where }),
+    ]);
+    return { items, total, page, pageSize };
   }
 
   async findOne(empresaId: number, id: number) {
     await this.empresas.validarEmpresaAtiva(empresaId);
-
     const profissional = await this.prisma.profissional.findUnique({
-      where: { empresaId, id }
-    })
-
-    if (!profissional) {
-      throw new NotFoundException('Profissional não encontrado')
-    }
-
+      where: { empresaId, id },
+    });
+    if (!profissional)
+      throw new NotFoundException('Profissional não encontrado nesta empresa.');
     return profissional;
   }
 
   async update(empresaId: number, id: number, dto: UpdateProfissionaisDto) {
-    await this.empresas.validarEmpresaAtiva(empresaId);
-
-    await this.findOne(empresaId, id)
-
-    return this.prisma.profissional.update({ where: { id, empresaId }, data: dto })
+    await this.findOne(empresaId, id);
+    return withEmpresaLock(this.prisma, empresaId, (tx) =>
+      tx.profissional.update({ where: { id, empresaId }, data: dto }),
+    );
   }
 
   async remove(empresaId: number, id: number) {
-    await this.empresas.validarEmpresaAtiva(empresaId);
-
-    await this.findOne(empresaId, id)
-
-    const totalAgendamentos = await this.prisma.agendamento.count({
-      where: { profissionalId: id, empresaId }
-    })
-
-    if (totalAgendamentos > 0) {
-      throw new ConflictException('O profissional possui agendamentos. Desative-o com PATCH { ativo: false }')
-    }
-
-    return this.prisma.profissional.delete({ where: { empresaId, id } })
+    await this.findOne(empresaId, id);
+    return withEmpresaLock(this.prisma, empresaId, async (tx) => {
+      const total = await tx.agendamento.count({
+        where: { profissionalId: id, empresaId },
+      });
+      if (total > 0)
+        throw new ConflictException(
+          'O profissional possui agendamentos. Desative-o com PATCH { ativo: false }.',
+        );
+      return tx.profissional.delete({ where: { empresaId, id } });
+    });
   }
 }

@@ -1,14 +1,25 @@
-import { BadRequestException, ExecutionContext, createParamDecorator } from "@nestjs/common";
-import { Request } from "express";
+import {
+  BadRequestException,
+  createParamDecorator,
+  type ExecutionContext,
+} from '@nestjs/common';
+import type { Request } from 'express';
 
 export const EmpresaId = createParamDecorator(
-    (_data: unknown, ctx: ExecutionContext): number => {
-        const request = ctx.switchToHttp().getRequest<Request>();
-        const id = Number(request.headers['x-empresa-id']);
+  (_data: unknown, ctx: ExecutionContext): number => {
+    const value = ctx.switchToHttp().getRequest<Request>().headers[
+      'x-empresa-id'
+    ];
+    const id =
+      typeof value === 'string' && /^[1-9]\d*$/.test(value)
+        ? Number(value)
+        : NaN;
 
-        if (!Number.isInteger(id) || id <= 0) {
-            throw new BadRequestException('Header x-empresa-id é obrigatório');
-        }
-
-        return id;
-    });
+    if (!Number.isSafeInteger(id)) {
+      throw new BadRequestException(
+        'Informe uma empresa válida no header x-empresa-id.',
+      );
+    }
+    return id;
+  },
+);

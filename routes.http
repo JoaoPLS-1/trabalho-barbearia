@@ -1,115 +1,177 @@
-POST http://localhost:3000/empresas
+@baseUrl = http://localhost:3000
+@empresaId = 1
+@clienteId = 1
+@profissionalId = 1
+@servicoId = 1
+@agendamentoId = 1
+@dataAgenda = 2026-11-26
+@inicioAgenda = 2026-11-26T09:00:00-03:00
+@chaveOperacao = 11111111-1111-4111-8111-111111111111
+
+### Cadastrar empresa de exemplo
+POST {{baseUrl}}/empresas
 Content-Type: application/json
-Test: Daniel
 
 {
-    "nome": "Barbearia do Renan",
-    "cnpj": "7Y.G43.BY2/0001-05"
+  "nome": "Barbearia Centro",
+  "cnpj": "12345678000100"
 }
 
-### 
+### Listar empresas para escolha
+GET {{baseUrl}}/empresas?ativa=true
 
-GET http://localhost:3000/empresas
+### Cadastrar cliente com telefone formatado
+POST {{baseUrl}}/clientes
+Content-Type: application/json
+x-empresa-id: {{empresaId}}
 
-###
+{
+  "nome": "Ana Silva",
+  "telefone": "+55 (11) 99999-0001"
+}
 
-POST http://localhost:3000/clientes
+### Buscar cliente por nome ou telefone parcial
+# Resposta: { items, total, page, pageSize }
+GET {{baseUrl}}/clientes?busca=9999&page=1&pageSize=20
+x-empresa-id: {{empresaId}}
+
+### Editar telefone com as mesmas regras do cadastro
+PATCH {{baseUrl}}/clientes/{{clienteId}}
+Content-Type: application/json
+x-empresa-id: {{empresaId}}
+
+{
+  "telefone": "(11) 98888-0001"
+}
+
+### Cadastrar profissional
+POST {{baseUrl}}/profissionais
+Content-Type: application/json
+x-empresa-id: {{empresaId}}
+
+{
+  "nome": "Bruno"
+}
+
+### Consultar ativos ou inativos usando ativo no singular
+GET {{baseUrl}}/profissionais?ativo=true&page=1&pageSize=20
+x-empresa-id: {{empresaId}}
+
+### Desativar sem remover reservas existentes
+PATCH {{baseUrl}}/profissionais/{{profissionalId}}
+Content-Type: application/json
+x-empresa-id: {{empresaId}}
+
+{
+  "ativo": false
+}
+
+### Cadastrar servico com preco decimal em string
+POST {{baseUrl}}/servicos
+Content-Type: application/json
+x-empresa-id: {{empresaId}}
+
+{
+  "nome": "Corte",
+  "preco": "40.10",
+  "duracaoMin": 30
+}
+
+### Listar catalogo com busca e situacao
+GET {{baseUrl}}/servicos?ativo=true&busca=Corte&page=1&pageSize=20
+x-empresa-id: {{empresaId}}
+
+### Alterar catalogo sem alterar dados ja contratados
+PATCH {{baseUrl}}/servicos/{{servicoId}}
+Content-Type: application/json
+x-empresa-id: {{empresaId}}
+
+{
+  "nome": "Corte tradicional",
+  "preco": "45.00",
+  "duracaoMin": 35
+}
+
+### Desativar servico preservando historico
+PATCH {{baseUrl}}/servicos/{{servicoId}}
+Content-Type: application/json
+x-empresa-id: {{empresaId}}
+
+{
+  "ativo": false
+}
+
+### Alterar expediente por empresa
+PATCH {{baseUrl}}/empresas/{{empresaId}}
 Content-Type: application/json
 
 {
-    "nome": "Daniel",
-    "telefone": "11999999990"
+  "fusoHorario": "America/Sao_Paulo",
+  "aberturaMin": 540,
+  "fechamentoMin": 1140,
+  "diasFuncionamento": [1,2,3,4,5,6]
+}
+
+### Reativar os registros usados nos exemplos de reserva
+PATCH {{baseUrl}}/profissionais/{{profissionalId}}
+Content-Type: application/json
+x-empresa-id: {{empresaId}}
+
+{
+  "ativo": true
 }
 
 ###
-GET http://localhost:3000/clientes
+PATCH {{baseUrl}}/servicos/{{servicoId}}
 Content-Type: application/json
-x-empresa-id: 1
-
-###
-GET http://localhost:3000/clientes/2
-Content-Type: application/json
-x-empresa-id: 2
-
-###
-PATCH http://localhost:3000/clientes/1
-Content-Type: application/json
-x-empresa-id: 1
+x-empresa-id: {{empresaId}}
 
 {
-    "nome": "Hugo Lagrimante"
+  "ativo": true
 }
 
-###
-DELETE http://localhost:3000/clientes/1
-Content-Type: application/json
-x-empresa-id: 1
+### Ajustar a data para um dia futuro aberto antes de executar
+GET {{baseUrl}}/agendamentos/disponibilidade?data={{dataAgenda}}&profissionalId={{profissionalId}}&servicoIds={{servicoId}}
+x-empresa-id: {{empresaId}}
 
-###
-POST http://localhost:3000/profissionais
+### Gerar um UUID v4 novo por pedido; preservar durante retentativas
+POST {{baseUrl}}/agendamentos
 Content-Type: application/json
-x-empresa-id: 1
+x-empresa-id: {{empresaId}}
+Idempotency-Key: {{chaveOperacao}}
 
 {
-    "nome": "Daniel"
+  "clienteId": {{clienteId}},
+  "profissionalId": {{profissionalId}},
+  "servicoIds": [{{servicoId}}],
+  "inicio": "{{inicioAgenda}}"
 }
 
-###
-GET http://localhost:3000/profissionais?ativos=true 
-Content-Type: application/json
-x-empresa-id: 1
+### Consultar confirmação incerta sem criar outra reserva
+GET {{baseUrl}}/agendamentos/operacoes/{{chaveOperacao}}
+x-empresa-id: {{empresaId}}
 
-###
-PATCH http://localhost:3000/profissionais/6 
+### Consultar detalhes
+GET {{baseUrl}}/agendamentos/{{agendamentoId}}
+x-empresa-id: {{empresaId}}
+
+### Agenda do dia
+GET {{baseUrl}}/agendamentos?data={{dataAgenda}}&profissionalId={{profissionalId}}&page=1&pageSize=20
+x-empresa-id: {{empresaId}}
+
+### Histórico do cliente
+GET {{baseUrl}}/agendamentos?clienteId={{clienteId}}&page=1&pageSize=20
+x-empresa-id: {{empresaId}}
+
+### Painel global: inclui dias anteriores não resolvidos
+GET {{baseUrl}}/agendamentos/pendentes?page=1&pageSize=20
+x-empresa-id: {{empresaId}}
+
+### Finalizar com CONCLUIDO ou FALTOU somente após o início; CANCELADO pode ser futuro
+PATCH {{baseUrl}}/agendamentos/{{agendamentoId}}/status
 Content-Type: application/json
-x-empresa-id: 1
+x-empresa-id: {{empresaId}}
 
 {
-    "ativo": false
-}
-
-###
-GET http://localhost:3000/profissionais/7
-Content-Type: application/json
-x-empresa-id: 1
-
-
----
-
-###
-POST http://localhost:3000/servicos
-Content-Type: application/json
-x-empresa-id: 1
-
-{
-    "nome": "Barba",
-    "preco": 40.00,
-    "duracaoMin": 20
-}
-
-
-### 
-PATCH http://localhost:3000/servicos/3
-Content-Type: application/json
-x-empresa-id: 1
-
-{
-    "preco": 45.00
-}
-
-###
-GET http://localhost:3000/servicos
-Content-Type: application/json
-x-empresa-id: 1
-
-### 
-POST http://localhost:3000/agendamentos
-Content-Type: application/json
-x-empresa-id: 1
-
-{
-    "clienteId": 2,
-    "profissionalId": 1,
-    "inicio": "2026-11-13T21:00:00-03:00",
-    "servicoIds": [2,3]
+  "status": "CANCELADO"
 }
