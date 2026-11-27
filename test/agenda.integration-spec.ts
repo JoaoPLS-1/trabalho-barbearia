@@ -281,4 +281,95 @@ describe('Agenda concorrente com MySQL real', () => {
       await prisma.agendamento.count({ where: { empresaId: empresas[0] } }),
     ).toBe(booking.status === 201 ? 1 : 0);
   });
+  it('rejeita pedido divergente com a mesma chave e preserva o original consultável', async () => {
+    const key = randomUUID();
+    const original = await reservar(0, key).expect(201);
+    const changed = {
+      ...pedidos[0],
+      inicio: new Date(
+        new Date(pedidos[0].inicio).getTime() + 15 * 60000,
+      ).toISOString(),
+    };
+    const response = await request(app.getHttpServer())
+      .post('/agendamentos')
+      .set('x-empresa-id', String(empresas[0]))
+      .set('Idempotency-Key', key)
+      .send(changed)
+      .expect(409);
+    expect(response.body.code).toBe('OPERACAO_DIVERGENTE');
+    const read = await request(app.getHttpServer())
+      .get('/agendamentos/operacoes/' + key)
+      .set('x-empresa-id', String(empresas[0]))
+      .expect(200);
+    expect(read.body.id).toBe(original.body.id);
+    expect(
+      await prisma.agendamento.count({ where: { empresaId: empresas[0] } }),
+    ).toBe(1);
+  });
+  it('aceita duas reservas adjacentes simultâneas sem sobreposição', async () => {
+    const later = {
+      ...pedidos[0],
+      inicio: new Date(
+        new Date(pedidos[0].inicio).getTime() + 30 * 60000,
+      ).toISOString(),
+    };
+    const responses = await Promise.all([
+      reservar(0, randomUUID()),
+      request(app.getHttpServer())
+        .post('/agendamentos')
+        .set('x-empresa-id', String(empresas[0]))
+        .set('Idempotency-Key', randomUUID())
+        .send(later),
+    ]);
+    expect(responses.map((r) => r.status)).toEqual([201, 201]);
+    const rows = await prisma.agendamento.findMany({
+      where: { empresaId: empresas[0] },
+      orderBy: { inicio: 'asc' },
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows[0].fim).toEqual(rows[1].inicio);
+  });
+  it('reserva com vários itens disputa o intervalo completo e não deixa snapshots do pedido recusado', async () => {
+    const extra = await prisma.servico.create({
+      data: {
+        empresaId: empresas[0],
+        nome: 'Barba',
+        preco: '15.05',
+        duracaoMin: 20,
+      },
+    });
+    const multi = {
+      ...pedidos[0],
+      servicoIds: [...pedidos[0].servicoIds, extra.id],
+    };
+    const overlap = {
+      ...pedidos[0],
+      inicio: new Date(
+        new Date(pedidos[0].inicio).getTime() + 30 * 60000,
+      ).toISOString(),
+    };
+    const send = (body: typeof multi) =>
+      request(app.getHttpServer())
+        .post('/agendamentos')
+        .set('x-empresa-id', String(empresas[0]))
+        .set('Idempotency-Key', randomUUID())
+        .send(body);
+    const responses = await Promise.all([send(multi), send(overlap)]);
+    expect(responses.map((r) => r.status).sort()).toEqual([201, 409]);
+    const winner = responses.find((r) => r.status === 201)!.body;
+    expect(
+      await prisma.agendamento.count({ where: { empresaId: empresas[0] } }),
+    ).toBe(1);
+    expect(
+      await prisma.agendamentoServico.count({
+        where: { empresaId: empresas[0] },
+      }),
+    ).toBe(winner.servicos.length);
+    if (winner.servicos.length === 2) {
+      expect(winner.total).toBe('55.15');
+      expect(
+        new Date(winner.fim).getTime() - new Date(winner.inicio).getTime(),
+      ).toBe(50 * 60000);
+    }
+  });
 });

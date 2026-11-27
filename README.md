@@ -11,7 +11,7 @@ A API da aula está em preparação para integração com o front-end. Os cadast
 - API NestJS e TypeScript com Prisma e MySQL; front-end em React, TypeScript e Vite.
 - Empresa corrente enviada pelo header x-empresa-id. A API valida o contexto e restringe as operações à empresa.
 - Profissionais e serviços usam desativação para preservar histórico.
-- A API copia os dados contratados e implementa a confirmação transacional de reservas; a execução com MySQL real continua pendente.
+- A API copia os dados contratados e implementa a confirmação transacional de reservas; a confirmação foi exercitada pelos testes de integração com MySQL real.
 - Agendamentos pendentes serão resolvidos pela recepção como concluídos, cancelados ou faltas.
 - Pagamentos, estoque e integração automática com WhatsApp ficam fora da primeira entrega.
 
@@ -78,7 +78,7 @@ A suíte unitária cobre configuração, proteção do banco de testes e exclus�
 
 O runner valida o destino, aplica as migrações existentes e executa os testes HTTP com MySQL real. Não há fallback para o banco de desenvolvimento, reset automático, truncate ou limpeza global. A suíte cria seus dados e remove apenas seus próprios registros.
 
-Os testes de integração estão preparados, mas sua execução está pendente de configuração do banco de testes, por decisão do grupo.
+Os 27 testes de integração foram executados com sucesso no MySQL 8.4.0 local, em barbearia_trabalho_test. A seção Verificação local com MySQL registra as evidências.
 
 ## Cadastros da API
 
@@ -94,7 +94,7 @@ As rotas DELETE legadas recusam clientes, profissionais e serviços com históri
 
 ## Migração dos cadastros
 
-A migração 20261125230000_fortalecer_cadastros_e_historico foi preparada, mas não aplicada nem validada com MySQL real nesta etapa. Executar a suíte de integração em banco de testes antes de migrar um banco com dados.
+A migração 20261125230000_fortalecer_cadastros_e_historico foi aplicada com sucesso nos bancos novos de demonstração e testes. Migrar uma base legada com dados ainda exige conferir suas inconsistências e o backup.
 
 Para migrar dados existentes, parar a API e conferir um backup. A migração verifica empresas obrigatórias, vínculos cruzados, telefones inválidos ou duplicados após normalização e valores monetários/durações incompatíveis antes de alterar tabelas do produto. Uma falha identifica a categoria por uma constraint com prefixo sanear_. Corrigir os registros indicados pela categoria antes de prosseguir; não atribuir órfãos a uma empresa arbitrária.
 
@@ -126,7 +126,7 @@ Reserva nova responde 201. Repetir a mesma chave com o mesmo pedido retorna 200 
 
 Em caso de demora ou resposta perdida, consultar /operacoes/:chave ou repetir exatamente o mesmo pedido com a mesma chave. Um 404 de consulta pode significar que a primeira requisição ainda está em andamento. Não gerar outra chave para a mesma tentativa incerta.
 
-A confirmação usa transação com bloqueios parametrizados, primeiro na empresa e depois no profissional, com nova checagem de situação, expediente e sobreposição antes de gravar a reserva e os itens contratados. Alterações de empresa, profissionais e serviços usam a mesma coordenação. A serialização por empresa simplifica a consistência para o volume da recepção; empresas diferentes continuam independentes. Conflitos e falhas transacionais têm mensagens de recuperação, sem detalhes do banco. A verificação desses bloqueios em MySQL real ainda está pendente.
+A confirmação usa transação com bloqueios parametrizados, primeiro na empresa e depois no profissional, com nova checagem de situação, expediente e sobreposição antes de gravar a reserva e os itens contratados. Alterações de empresa, profissionais e serviços usam a mesma coordenação. A serialização por empresa simplifica a consistência para o volume da recepção; empresas diferentes continuam independentes. Conflitos e falhas transacionais têm mensagens de recuperação, sem detalhes do banco. A suíte de integração verificou esses bloqueios nos cenários de concorrência e rollback com MySQL 8.4.0.
 
 AGENDADO pode virar CONCLUIDO, CANCELADO ou FALTOU. Concluir e marcar falta exigem que o início previsto tenha chegado. Repetir o mesmo estado final não faz outra alteração; mudar um estado final para outro retorna 409 ESTADO_INVALIDO. Cancelar libera a ocupação sem apagar o histórico. Não existe DELETE de agendamento nem edição de horário; para remarcar, cancelar e cadastrar outra reserva.
 
@@ -134,7 +134,7 @@ O painel inclui todos os AGENDADOS, inclusive pendências de dias anteriores. At
 
 ## Migração do expediente e das operações
 
-A migração 20261126000000_expediente_e_operacoes também está preparada e não foi aplicada. Ela preenche o expediente das empresas existentes, cria o padrão JSON no MySQL e adiciona chave/hash opcionais para preservar reservas legadas sem inventar chaves de operação. As novas reservas exigem a chave pela API.
+A migração 20261126000000_expediente_e_operacoes foi aplicada com sucesso nos dois bancos novos. Ela preenche o expediente das empresas existentes, cria o padrão JSON no MySQL e adiciona chave/hash opcionais para preservar reservas legadas sem inventar chaves de operação. As novas reservas exigem a chave pela API.
 
 A suíte de integração inclui testes de duas reservas simultâneas, repetição simultânea da mesma chave, rollback com itens contratados, finalizações divergentes e alterações concorrentes de preço ou situação. Esses testes devem rodar em banco exclusivo antes de considerar a concorrência validada. As suítes sem banco testam regras e HTTP, sem simular garantias reais de locks e rollback.
 
@@ -214,7 +214,7 @@ Formulários com alterações pedem confirmação antes de cancelar, voltar, nav
 
 O histórico pode ser aberto pela lista de clientes ou pelo submenu de agendamentos. Ele inclui todas as situações, com filtros por data e situação e paginação, na ordem do mais antigo ao mais recente. O horário usa o fuso da empresa, e os detalhes apresentam os serviços e valores registrados na reserva. A consulta de um cliente de outra empresa retorna indisponível.
 
-Os testes de navegador também percorrem as gravações de cadastro e a validação de duplicidade pela API NestJS real, com somente a persistência substituída por dados isolados. Esses testes não acessam MySQL. A execução das migrações e da suíte com MySQL real permanece pendente.
+Os testes de navegador também percorrem as gravações de cadastro e a validação de duplicidade pela API NestJS real, com somente a persistência substituída por dados isolados. Esses testes não acessam MySQL. As migrações e a suíte separada com MySQL real foram executadas com sucesso nos bancos locais indicados ao final.
 
 
 ## Reservas e finalização pela interface
@@ -227,11 +227,11 @@ Cada pedido de reserva usa uma chave UUID enviada em Idempotency-Key. Antes do e
 
 Nos detalhes do atendimento, concluir ou marcar falta só fica disponível a partir do início previsto. Cancelar pode ocorrer antes e mantém o histórico. Todas as ações exigem confirmação, e a API revalida o estado. Resposta incerta de finalização exige consultar a situação antes de repetir a mesma ação; as demais ações ficam bloqueadas até resolver a consulta. Uma atualização confirmada invalida as consultas da empresa para atualizar painel, agenda e histórico.
 
-Os testes de navegador cobrem a reserva e o cancelamento contra NestJS com persistência isolada, conflitos controlados, perda de resposta antes e depois da gravação, recuperação após recarregar, chave e corpo reutilizados, cadastro rápido, conclusão, falta e tela de celular. Eles não comprovam transações MySQL: migrações e testes com banco real seguem pendentes conforme combinado.
+Os testes de navegador cobrem a reserva e o cancelamento contra NestJS com persistência isolada, conflitos controlados, perda de resposta antes e depois da gravação, recuperação após recarregar, chave e corpo reutilizados, cadastro rápido, conclusão, falta e tela de celular. Eles não comprovam transações MySQL; essa verificação foi feita pela suíte separada de 27 testes com banco real.
 
 ## Dados de demonstração
 
-O comando de seed está preparado, mas ainda não foi executado neste ambiente. Quando a execução com MySQL for retomada, configurar DATABASE_URL para um banco de desenvolvimento ou demonstração, aplicar as migrações e executar explicitamente:
+O seed foi executado e sua repetição foi validada no banco barbearia_trabalho_demo. Para preparar outro ambiente, configurar DATABASE_URL para um banco de desenvolvimento ou demonstração, aplicar as migrações e executar explicitamente:
 
 ```bash
 npm run db:migrate
@@ -244,6 +244,27 @@ Cadastros usam IDs reservados entre 10001 e 10104; os bancos ajustam sua sequên
 
 Alterações do usuário em catálogo, situação, expediente ou fuso são preservadas. Novos cenários incompatíveis com essas alterações ou com reservas existentes são omitidos e contados no resultado do comando. Um atendimento criado pelo seed e depois cancelado ou concluído não é reaberto em outra execução. O seed bloqueia execução com NODE_ENV=production e usa uma transação com a mesma ordem de coordenação por empresa.
 
-O plano das datas, vínculos, chaves e snapshots é testado sem banco. A execução do seed e sua validação com MySQL real continuam pendentes, conforme combinado.
+O plano das datas, vínculos, chaves e snapshots é testado sem banco. A execução do seed e sua validação com MySQL real passaram, incluindo a repetição sem duplicidade.
 
 A configuração usa o [seed explícito do Prisma 7](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/seeding).
+
+## Verificação local com MySQL
+
+Em 26/11/2026, as cinco migrações foram aplicadas com sucesso em dois bancos novos no MySQL 8.4.0 local: barbearia_trabalho_demo, usado pela API, e barbearia_trabalho_test, exclusivo da suíte. Os bancos dos outros projetos não foram alterados.
+
+Os 27 testes de integração passaram, cobrindo isolamento de empresas, concorrência, idempotência, rollback, reservas adjacentes, vários serviços, preservação de histórico e repetição do seed. A execução real identificou e corrigiu o campo de empresa repetido nos itens aninhados do seed; o Prisma já herda esse vínculo do agendamento.
+
+O primeiro seed inseriu 12 atendimentos. A repetição inseriu zero e reaproveitou os mesmos 12. O banco de demonstração contém:
+
+| Dados | Quantidade |
+| --- | ---: |
+| Empresas | 2 |
+| Clientes | 6 |
+| Profissionais | 6 |
+| Serviços | 8 |
+| Atendimentos | 12 |
+| Itens contratados | 14 |
+
+Há seis atendimentos AGENDADOS, dois CONCLUIDOS, dois CANCELADOS e dois FALTOU. Consultas pela API real confirmaram, por empresa, três clientes, três pendências (uma atrasada) e seis atendimentos no histórico. Consultar o cliente de uma empresa com o contexto da outra retornou 404. Ao final da suíte, o banco de testes ficou sem empresas e atendimentos criados pelos testes.
+
+As conexões locais estão em .env e .env.test.local, ignorados pelo Git. Credenciais não são incluídas no repositório. Os resultados de MySQL acima são locais; a execução remota do workflow permanece a verificar após a publicação.

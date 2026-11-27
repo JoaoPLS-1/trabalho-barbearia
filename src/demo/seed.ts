@@ -136,10 +136,16 @@ export async function seedDemo(db: PrismaClient, now = new Date()) {
             data: {
               ...data,
               servicos: {
-                create: servicos.map((item) => ({
-                  ...item,
-                  precoCobrado: new Prisma.Decimal(item.precoCobrado),
-                })),
+                create: servicos.map(
+                  (
+                    item,
+                  ): Prisma.AgendamentoServicoUncheckedCreateWithoutAgendamentoInput => ({
+                    servicoId: item.servicoId,
+                    nomeContratado: item.nomeContratado,
+                    duracaoContratadaMin: item.duracaoContratadaMin,
+                    precoCobrado: new Prisma.Decimal(item.precoCobrado),
+                  }),
+                ),
               },
             },
           });
