@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { useState, type ReactNode } from 'react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { useFilterParams } from '../src/lib/filter-params';
@@ -83,4 +90,27 @@ describe('Filtros da URL', () => {
       '3',
     );
   });
+});
+
+it('callback anterior à limpeza também parte dos filtros mais recentes', () => {
+  function Wrapper({ children }: { children: ReactNode }) {
+    const [router] = useState(() =>
+      createMemoryRouter([{ path: '/', element: children }], {
+        initialEntries: ['/?status=CANCELADO&page=3'],
+      }),
+    );
+    return <RouterProvider router={router} />;
+  }
+  const { result } = renderHook(() => useFilterParams(), { wrapper: Wrapper });
+  const previousSetter = result.current[1];
+  act(() => result.current[1]({}));
+  act(() =>
+    previousSetter((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set('data', '2030-01-07');
+      return next;
+    }),
+  );
+  expect(result.current[0].get('status')).toBeNull();
+  expect(result.current[0].get('data')).toBe('2030-01-07');
 });
